@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  
+</body>
+<script>
+  // mergesort
+  // 分治思想
+  function mergeSort(nums) {
+    // 如果数组长度小于等于1就不用切割了 直接返回数组
+    if (nums.length < 2) return nums;
+    // 二分数组
+    var middleIndex = Math.floor(nums.length / 2);
+    var left = nums.slice(0, middleIndex);
+    var right = nums.slice(middleIndex);
+    // 递归，这一块用到分治法中的 集成合并
+    return merge(mergeSort(left), mergeSort(right));
+  }
+  // 合并 
+  function merge(left, right) {
+    console.log(left, right)
+    var result = [];
+    // 当一个数组长度为0的时候，就终止循环
+    while(left.length > 0 && right.length > 0) {
+      if (left[0] > right[0]) {
+        // right小的话先切割right放到result里面
+        result.push(right.shift());
+      } else {
+        result.push(left.shift());
+      }
+    }
+    return result.concat(left, right);
+  }
+  const arr0 = [12, 2, 12, 13, 23, 4, 45, -1]
+  console.log(mergeSort(arr0)) // [-1, 2, 4, 12, 12, 13, 23, 45]
+  console.log('---------------------------------------------------------------------')
+
+  // 算法四中的并归   我们的上面算法切割数组传递数组，算法四没有采用了复制和本地排序
+  // 原地并归
+  // 这个真能针对下面的第一个console.log打印的 就是以中间线分割 右边与左边是排序好的
+  // console.log(mergeInPlace(['E', 'E', 'G', 'M', 'R', 'A', 'C', 'E', 'R', 'T']))
+  var mergeInPlace = function(a, aux, lo, mid, hi) {
+    // var lo = 0; // 0
+    // var hi = a.length - 1; // 9
+    // var mid = Math.floor((lo + hi) / 2); // 4
+    // var i = 0;
+    var i = lo;
+    var j = mid + 1;
+    // 复制的数组
+    for(var m = lo; m <= hi; m++) {
+      aux[m] = a[m];
+    }
+    for(var k = lo; k <= hi; k++) {
+      if (i > mid) {
+        // 左半边用尽（取右半边的元素）
+        a[k] = aux[j++];
+      } else if (j > hi) {
+        // 右半边用尽（取左半边的元素）
+        a[k] = aux[i++];
+      } else if (aux[j] < aux[i]) {
+        // 右半边的当前元素小于左半边的当前元素（取右半边的元素）
+        a[k] = aux[j++];
+      } else {
+        // 右半边的当前元素大于等于左半边的当前元素（取左半边的元素）。
+        a[k] = aux[i++];
+      }
+    }
+    console.log('mmmmm', lo, mid, hi, aux, a)
+  }
+  
+  // 自定向下的并归排序
+  function mergeSortMain(a) {
+    var aux = new Array(a.length);
+    sort(a, aux, 0, a.length - 1);
+    return a;
+  }
+
+  function sort(a, aux, lo, hi) {
+    console.log(lo, hi)
+    // 将数组a[lo...hi]排序
+    if (hi <= lo) return;
+    // 找到中间值
+    var mid = Math.floor((lo + hi) / 2);
+    console.log(mid, 'mid')
+    // 将左半边排序
+    sort(a, aux, lo, mid);
+    // 将右半边排序
+    sort(a, aux, mid + 1, hi);
+    // 并归结果见mergeInPlace
+    mergeInPlace(a, aux, lo, mid, hi);
+  }
+  const arr = [12, 2, 12, 13, 23, 4, 45]
+  console.log(mergeSortMain(arr)) // [-1, 2, 4, 12, 12, 13, 23, 45]
+  // console.log(mergeSortMain([9,8,7,6,5,4,3,2,1])) // [-1, 2, 4, 12, 12, 13, 23, 45]
+
+  console.log('-------------------------------------------------------------')
+
+  // 不传aux
+  var mergeInPlace1 = function(a, lo, mid, hi) {
+    // var lo = 0; // 0
+    // var hi = a.length - 1; // 9
+    // var mid = Math.floor((lo + hi) / 2); // 4
+    // var i = 0;
+    var aux = []
+    var i = lo;
+    var j = mid + 1;
+    // 复制的数组
+    for(var m = lo; m <= hi; m++) {
+      aux[m] = a[m];
+    }
+    for(var k = lo; k <= hi; k++) {
+      if (i > mid) {
+        // 左半边用尽（取右半边的元素）
+        a[k] = aux[j++];
+      } else if (j > hi) {
+        // 右半边用尽（取左半边的元素）
+        a[k] = aux[i++];
+      } else if (aux[j] < aux[i]) {
+        // 右半边的当前元素小于左半边的当前元素（取右半边的元素）
+        a[k] = aux[j++];
+      } else {
+        // 右半边的当前元素大于等于左半边的当前元素（取左半边的元素）。
+        a[k] = aux[i++];
+      }
+    }
+    console.log('mmmmm', lo, mid, hi, aux, a)
+  }
+  
+  // 自顶向下的并归排序
+  function mergeSortMain1(a) {
+    sort1(a, 0, a.length - 1);
+    return a;
+  }
+
+  function sort1(a, lo, hi) {
+    console.log(lo, hi)
+    // 将数组a[lo...hi]排序
+    if (hi <= lo) return;
+    // 找到中间值
+    var mid = Math.floor((lo + hi) / 2);
+    console.log(mid, 'mid')
+    // 将左半边排序
+    sort1(a, lo, mid);
+    // 将右半边排序
+    sort1(a, mid + 1, hi);
+    // 并归结果见mergeInPlace
+    mergeInPlace1(a, lo, mid, hi);
+  }
+  const arr2 = [12, 2, 12, 13, 23, 4, 45, -1]
+  console.log(mergeSortMain1(arr2)) // [-1, 2, 4, 12, 12, 13, 23, 45]
+
+  console.log('----------------------------------------------------------------')
+
+  // 自底向下的归并排序
+  var mergeInPlaceBU = function(a, aux, lo, mid, hi) {
+    var i = lo;
+    var j = mid + 1;
+    // 复制的数组
+    for(var m = lo; m <= hi; m++) {
+      aux[m] = a[m];
+    }
+    for(var k = lo; k <= hi; k++) {
+      if (i > mid) {
+        // 左半边用尽（取右半边的元素）
+        a[k] = aux[j++];
+      } else if (j > hi) {
+        // 右半边用尽（取左半边的元素）
+        a[k] = aux[i++];
+      } else if (aux[j] < aux[i]) {
+        // 右半边的当前元素小于左半边的当前元素（取右半边的元素）
+        a[k] = aux[j++];
+      } else {
+        // 右半边的当前元素大于等于左半边的当前元素（取左半边的元素）。
+        a[k] = aux[i++];
+      }
+    }
+    console.log('BU', lo, mid, hi, aux, a)
+  }
+  
+  // 自定向下的并归排序
+  // 12345678
+  // 第一轮 12 34 56 78    sz为1
+  // 第二轮 1234 5678      sz为2
+  // 第三轮 12345678       sz为4
+  function mergeSortBU(a) {
+    // 进行lgN次两两并归
+    var n = a.length;
+    var aux = new Array(n);
+    // 自底向上的归并排序会多次遍历整个数组，根据子数组大小进行两两归并。
+    // 子数组的大小sz的初始值为1，每次加倍。最后一个子数组的大小只有在数组大小是sz的偶数倍的时候才会等于sz（否则它会比sz小）。
+    for(var sz = 1; sz < n; sz = sz + sz) { // sz子数组大小
+      for(var lo = 0; lo < n - sz; lo += sz + sz) { // lo: 子数组索引
+        mergeInPlaceBU(a, aux, lo, lo + sz - 1, Math.min(lo + sz + sz - 1, n - 1));
+      }
+    }
+    return a;
+  }
+  console.log(mergeSortBU(['M','E','R','G','E','S','O','R','T','E','X','A','M','P','L','E']))
+</script>
+</html>

@@ -1,0 +1,9 @@
+拉链和线性探测都是无顺序的
+Java的java.util.TreeMap和java.util.HashMap分别是基于红黑树和拉链法的散列表的符号表实现。
+HashMap和我们的LinearProbingHashST的实现基本相同——它也会动态调整数组的大小来保持使用率大约不超过75%。
+我们在调用代码中将使用ST来代替有序符号表RedBlackBST，用HashST来代替有序性操作无关紧要且拥有散列函数的LinearProbingHashST。
+
+基于符号表ST, SET类分有序和无序两个版本  Set是不可以有重复元素的
+为了遵守我们关于符号表ST的约定，我们在用例中用SET表示有序的集合，用HashSET表示无序的集合。
+HashSet: 基于SeparateChainingHashST（拉链）
+Set：基于RedBlackBST、或者二分查找有序数组

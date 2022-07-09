@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+
+</body>
+<script>
+  // 无向图
+  class Node {
+    constructor(val) {
+      this.val = val;
+      this.next = null;
+    }
+  }
+  // 包，这里用链表实现，a放在包里后，再放b，b在a上面 链表的表示就是b->a
+  class Bag {
+    constructor() {
+      this.first = null;
+      this.N = 0; // Bag的长度
+    }
+
+    isEmpty() {
+      return this.first == null;
+    }
+
+    size() {
+      return this.N;
+    }
+
+    // 往包里添加
+    add(key) {
+      // 保存老的链表
+      var oldFirst = this.first;
+      // 创建一个新的结点
+      this.first = new Node(key);
+      // 把老的结点放到新的first后i面
+      this.first.next = oldFirst;
+      this.N++;
+    }
+  }
+  // var a = new Bag();
+  // a.add(3)
+  // a.add(2)
+  // a.add(1)
+  // console.log(a) // 1->2->3
+  // 邻接表数组
+  // [链表1，链表2，链表3]，这里下标对应了点，从0开始，item就是点的邻接表链表
+  class Graph {
+    constructor(V) {
+      // 点的数目
+      this.V = V;
+      // 边的数目
+      this.E = 0;
+      // 邻接表采用Bag对象
+      // 创建邻接表，并初始化
+      // [链表1，链表2，链表3]，这里下标对应了点，从0开始，item就是点的邻接表链表
+      this.adj = new Array(this.V).fill(0).map(item => new Bag());
+      console.log(this.adj)
+    }
+
+    // 返回图的点的个数
+    sizeV() {
+      return this.V;
+    }
+
+    // 返回边的数目
+    sizeE() {
+      return this.E;
+    }
+
+    // 给两个点添加边
+    // 也就是给两个点分别存入对方，v中的bag添加w，w中的bag添加v
+    // 参数v w都是点
+    addEdge(v, w) {
+      this.adj[v].add(w); // 将w添加到v的链表中
+      this.adj[w].add(v); // 将v添加到w的链表中
+      // 0-1 这样 0中的邻接表有1，1中的邻接表有0，这代表了一天边
+      // 让边++
+      this.E++;
+    }
+
+    // 返回一个点的邻接表
+    returnAdj(v) {
+      // 参数v代表了点，也就是数组的下标
+      return this.adj[v];
+    }
+
+    // 计算v的度数，相邻顶点的个数
+    // 某个顶点的度数即为依附于它的边的总数(也就是找他相邻顶点的个数)
+    degree(v) {
+      var degree = 0;
+      for (var w of this.adj[v]) {
+        console.log(w)
+        degree++;
+      }
+      return degree;
+    }
+  }
+  // var g = new Graph(3);
+  // g.addEdge(0, 1);
+  // g.addEdge(1, 2);
+  // g.addEdge(0, 2);
+  // console.log(g)
+
+  var g1 = new Graph(4);
+  g1.addEdge(0, 1);
+  g1.addEdge(0, 2);
+  g1.addEdge(1, 3);
+  console.log(g1)
+
+  // 使用符号表（ST）来代替由顶点索引构成的数组（这样修改之后就不需要约定顶点名必须是整数了）
+  // 我们可能需要使用SET代替Bag来实现邻接表。我们称这种方法为邻接集
+
+  // 数据结构         所需空间        添加一条边v-w       检查w和v是否相邻     遍历v的所有相邻顶点  
+  // 邻接矩阵           V^2               1                  1                   v（v乘v的数组，所以查找v的相邻顶点，直接遍历顶点就可以了找到true的）
+  // 邻接表            E + V              1（链表添加）     degree(V)            degree(v)
+  // 邻接集            E + V             logV              logV                logV+degree(V)   (添加时LogV(set可能是由有序数组的st构成的，通过二分查找))
+
+
+  // 找到和起点s连通的所有顶点
+  // Search 
+  // marked(v)  v和s是连通的吗   在图中从起点开始沿着路径到达其他顶点并标记每个路过的顶点
+  // count()   与s连通的顶点总数  通过count与图的定点数V判断这个图是否是连通图
+  // 用这幅图和给定的起始结点创建一个Search对象
+  // 上面这种算法可以通过加权的union-find算法来实现（对图中的每一条边进行一次union()(连通操作)操作并调用connected(s,v)来实现marked(v)方法。）
+
+  // 深度优先搜索实现search
+  // 我们常常通过系统地检查每一个顶点和每一条边来获取图的各种性质
+
+  // 迷宫游戏
+  // 用迷宫代替图、通道代替边、路口代替顶点仅仅只是一些文字游戏，但就目前来说，这么做可以帮助我们直观地认识问题
+  // Tremaux搜索
+  // ❏选择一条没有标记过的通道，在你走过的路上铺一条绳子；
+  // ❏标记所有你第一次路过的路口和通道；
+  // ❏当来到一个标记过的路口时（用绳子）回退到上个路口；
+  // ❏当回退到的路口已没有可走的通道时继续回退。
+  // 绳子可以保证你总能找到一条出路，标记则能保证你不会两次经过同一条通道或者同一个路口
+
+  // 单点连通性
+  // 深度优先搜索图
+  // 深度优先搜索标记与起点连通的所有顶点所需的时间和顶点的度数之和成正比。
+  // 它使用一个boolean数组来记录和起点连通的所有顶点
+  // 递归方法会标记给定的顶点并调用自己来访问该顶点的相邻顶点列表中所有没有被标记过的顶点。
+  // 如果图是连通的，每个邻接链表中的元素都会被检查到。
+  class DepthFirstSearch {
+    constructor(G, s) {
+      // 保存图
+      this.G = G;
+      // 保存起点
+      this.s = s;
+      // 标记
+      // 初始化的时候，创建一个和图的点的个数为长度的数组，然后每个item赋值为false
+      this.marked = new Array(this.G.sizeV()).fill(false);
+      // 遍历过的点的个数
+      this.count = 0;
+      // 递归开始
+      this.dfs(this.G, this.s);
+    }
+
+    // dfs深度遍历
+    // 深度优先遍历，进入一个点然后找它的临点，在沿着临点下面的点一直找，直到结束，递归结束，返回上一层继续找，跟react，vue的深度优先一致
+    // G为图，v为要搜索的点
+    // 官方解释：
+    // 要搜索一幅图，只需用一个递归方法来遍历所有顶点。在访问其中一个顶点时：
+    // ❏将它标记为已访问；
+    // ❏递归地访问它的所有没有被标记过的邻居顶点。
+    dfs(G, v) {
+      console.log(v, this.G.returnAdj(v).first, '1111111111111')
+      // 标记已经去过，为true
+      this.marked[v] = true;
+      // 计数器加一
+      this.count++;
+      // 遍历v周边的点，挨个进行dfs，除非已经标记过去过的不用进行
+      // for(var w of this.G.returnAdj(v)) { // 不是数组 用的链表
+      for (var w = this.G.returnAdj(v).first; w != null; w = w.next) {
+        // 遍历图中v点的相邻的点，如果没有被标记就继续递归dfs没有标记的w
+        if (!this.marked[w.val]) {
+          console.log(w, '222222222222222')
+          this.dfs(G, w.val);
+        }
+      }
+    }
+
+    // 接收一个点，返回他是否被标记或者是否被搜索过
+    markedFunc(w) {
+      return this.marked[w];
+    }
+
+    // 返回已经标记过的点的个数
+    countFunc() {
+      return this.count;
+    }
+  }
+
+  var s = new DepthFirstSearch(g1, 0);
+  console.log(s)
+
+  // 寻找路径
+  // Paths(G, s)     在G中找出所有起点为s的路径
+  // hasPathTo(v)    是否存在从s到v的路径
+  // pathTo(v)       s到v的路径，如果不存在则返回null
+  // 基于DepthFirstSearch，添加了一个实例变量edgeTo[]整型数组来起到Tremaux搜索中绳子的作用。这个数组可以找到从每个与s连通的顶点回到s的路径。
+  // 它会记住每个顶点到起点的路径，而不是记录当前顶点到起点的路径
+
+  // 单点路径
+  // 寻找路径
+  class DepthFirstPaths {
+    constructor(G, s) {
+      // 保存图
+      this.G = G;
+      // 保存起点
+      this.s = s;
+      // 标记
+      // 初始化的时候，创建一个和图的点的个数为长度的数组，然后每个item赋值为false
+      this.marked = new Array(this.G.sizeV()).fill(false);
+      // edgeTo数组
+      // 添加了一个实例变量edgeTo[]整型数组来起到Tremaux搜索中绳子的作用。这个数组可以找到从每个与s连通的顶点回到s的路径。
+      // 它会记住每个顶点到起点的路径，而不是记录当前顶点到起点的路径
+      // 从起点到一个顶点的已知路径上的最后一个顶点
+      this.edgeTo = new Array(this.G.sizeV()).fill(0);
+      // 递归开始
+      this.dfs(this.G, this.s);
+    }
+
+    // 深度优先遍历
+    dfs(G, v) {
+      // 标记已经去过，为true
+      this.marked[v] = true;
+      // 遍历v周边的点，挨个进行dfs，除非已经标记过去过的不用进行
+      for (var w = this.G.returnAdj(v).first; w != null; w = w.next) {
+        // 遍历图中v点的相邻的点，如果没有被标记就继续递归dfs没有标记的w
+        if (!this.marked[w.val]) {
+          // 如果发现未被遍历的点，将edgeTo的下边设置为w，下标对应的元素设置为v
+          // 比如从1(v)到2(w)，edgeTo: [0, 0, 1,....] 下标2是目标路径，下标2对应的item为1，1是起始路径
+          // 0->1->2->3，edgeTo[0,0,1,2]，就是下标3找到元素2，下标2找到元素1，下标1找到元素0.
+          this.edgeTo[w.val] = v;
+          this.dfs(G, w.val);
+        }
+      }
+    }
+
+    // 是否存在从s到v的路径
+    hasPathTo(v) {
+      return this.marked[v];
+    }
+
+    // s到v的路径，如果不存在则返回null
+    pathTo(v) {
+      if (!this.hasPathTo(v)) return null;
+      // 栈，将每个从s到v路过的点压到栈中
+      var pathStack = [];
+      // v是终点，x从v开始，并且x不等于我们的起点s，不断地拿出到v的点直至到起点前结束
+      // 0->1->2->3，edgeTo[0,0,1,2]，就是下标3找到元素2，下标2找到元素1，下标1找到元素0.
+      // 上面中，v是3，找到3，然后压入到path栈中，然后找到下标3对应的它的元素2（3的上一个路径），然后将2压入到栈中，找到下标2对应的元素1，然后将1压入到栈中，找到1对应的元素为0，然后0==s，所以找到了起点，并退出循环
+      for (var x = v; x != this.s; x = this.edgeTo[x]) {
+        pathStack.push(x);
+      }
+      // 将起点压入到栈中
+      pathStack.push(this.s);
+      return pathStack;
+    }
+  }
+
+  // 测试用例
+  var g = new Graph(4);
+  g.addEdge(0, 1);
+  g.addEdge(1, 2);
+  g.addEdge(2, 3);
+  console.log(g)
+  var search = new DepthFirstPaths(g, 0); // s 为起点
+  // console.log(search)
+  for (var v = 0; v < g.sizeV(); v++) {
+    var path = search.s + 'to' + v + ": ";
+    if (search.hasPathTo(v)) {
+      for (var x of search.pathTo(v).reverse()) { // pathTo是一个栈，所以这里需要反转一下 或者其他方式
+        if (x == search.s) {
+          path += x; // 起点
+        } else {
+          path += ("-" + x); // 过程点
+        }
+      }
+    }
+    console.log(path)
+    // 0to0: 0
+    // 0to1: 0-1
+    // 0to2: 0-1-2
+    // 0to3: 0-1-2-3
+  }
+
+  // bfs可以解决最短路径问题！！！！
+  // dfs隐式的使用了栈，bfs显示的使用了队列
+  // 算法4.2中的bfs()方法不是递归的。不像递归中隐式使用的栈，它显式地使用了一个队列。和深度优先搜索一样，它的结果也是一个数组edgeTo[]，
+  // 也是一棵用父链接表示的根结点为s的树。它表示了s到每个与s连通的顶点的最短路径
+
+  // 使用广度优先搜索查找图中的路径
+  // 对于从s可达的任意顶点v，广度优先搜索都能找到一条从s到v的最短路径（没有其他从s到v的路径所含的边比这条路径更少）。
+  // 由归纳易得队列总是包含零个或多个到起点的距离为k的顶点，之后是零个或多个到起点的距离为k+1的顶点，其中k为整数，起始值为0
+  // 广度优先搜索所需的时间在最坏情况下和V+E成正比。
+  // 广度优先搜索标记所有与s连通的顶点所需的时间也与它们的度数之和成正比。如果图是连通的，这个和就是所有顶点的度数之和，也就是2E。
+
+  // 单点最短路径
+  class BreadthFirstPaths {
+    constructor(G, s) {
+      // 保存图和起点
+      this.G = G;
+      this.s = s;
+      // 标记数组，到达该顶点后，将false改为true
+      this.marked = new Array(this.G.sizeV()).fill(false);
+      // edgeTo数组
+      // 也是一棵用父链接表示的根结点为s的树。它表示了s到每个与s连通的顶点的最短路径
+      this.edgeTo = new Array(this.G.sizeV()).fill(0);
+
+      // 开启广度优先遍历
+      this.bfs(this.G, this.s);
+    }
+
+    // 广度优先遍历
+    // 从起点开始，将遍历开始的起点，将起点加入到queue中，标记起点已经被遍历过，然后开启while循环，
+    // 循环的终止条件为queue的长度为0，每次while循环都会从queue里取第一个元素v，然后找到这个元素v
+    // 的相邻元素，开启for循环，如果v的相邻元素有没有被标记的就以这个元素为下标，v为item添加到edgeTo
+    // 数组里，并且标记这个元素marked为True，然后将这个元素添加到队列里,就这样结束一次while循环，
+    // 然后最终queue没元素的时候就结束循环。
+    bfs(G, s) {
+      // 定义一个队列
+      // 为被遍历的点放在这个队列里
+      var queue = [];
+      // 标记起点
+      this.marked[s] = true;
+      // 将他加入队列
+      queue.push(s);
+      // 循环终止条件为队列为空
+      while (queue.length) {
+        // console.log(queue, '!!!!!!!!!!!!!!!!!')
+        // 从队列中删除下一个点
+        var v = queue.shift();
+        // 遍历v周边的点，如果没有被标记过，放入到队列
+        for (var w = this.G.returnAdj(v).first; w != null; w = w.next) {
+          // 对于每个未被标记的相邻顶点
+          if (!this.marked[w.val]) {
+            // 保存最短路径的最后一条边
+            this.edgeTo[w.val] = v;
+            // 标记他，因为最短路径已知
+            this.marked[w.val] = true;
+            // 并将他添加到队列中
+            queue.push(w.val);
+          }
+        }
+      }
+    }
+
+    // 是否存在从s到v的路径
+    hasPathTo(v) {
+      return this.marked[v];
+    }
+
+    // s到v的路径，如果不存在则返回null
+    pathTo(v) {
+      if (!this.hasPathTo(v)) return null;
+      // 栈，将每个从s到v路过的点压到栈中
+      var pathStack = [];
+      for (var x = v; x != this.s; x = this.edgeTo[x]) {
+        pathStack.push(x);
+      }
+      // 将起点压入到栈中
+      pathStack.push(this.s);
+      return pathStack;
+    }
+  }
+
+  console.log('----------------------------------------')
+  // 测试用例
+  // 0 [2,1]
+  // 1 [0]
+  // 2 [3,0]
+  // 3 [2]
+  var g2 = new Graph(4);
+  g2.addEdge(0, 1)
+  g2.addEdge(0, 2)
+  g2.addEdge(2, 3)
+  console.log(g2)
+  var search = new BreadthFirstPaths(g2, 0); // s 为起点
+  // console.log(search)
+  for (var v = 0; v < g2.sizeV(); v++) {
+    var path = search.s + 'to' + v + ": ";
+    if (search.hasPathTo(v)) {
+      for (var x of search.pathTo(v).reverse()) { // pathTo是一个栈，所以这里需要反转一下 或者其他方式
+        if (x == search.s) {
+          path += x; // 起点
+        } else {
+          path += ("-" + x); // 过程点
+        }
+      }
+    }
+    console.log(path)
+    // 0to0: 0
+    // 0to1: 0-1
+    // 0to2: 0-2
+    // 0to3: 0-2-3
+  }
+  console.log(search)
+
+  // 深度优先搜索的下一个直接应用就是找出一幅图的所有连通分量
+  // “与……连通”是一种等价关系，它能够将所有顶点切分为等价类（连通分量）。
+  // 连通分量(子图)
+  // 连通图：如果从任意一个顶点都存在一条路径到达另一个任意顶点，我们称这幅图是连通图。一幅非连通的图由若干连通的部分组成，它们都是其极大连通子图
+  // 一般来说，要处理一张图就需要一个个地处理它的连通分量（子图）。
+  // api
+  // CC(G)             // 预处理构造函数
+  // connected(v, w)   // v和w连通吗
+  // count()           // 连通分量数
+  // id(v)             // v所在的连通分量的标识符（0~count()-1）
+  // 用例可以用id()方法将连通分量用数组保存，如框注中的用例所示。它能够从标准输入中读取一幅图并打印其中的连通分量数，其后是每个子图中的所有顶点，每行一个子图
+  // 它使用了一个Bag对象数组，然后用每个顶点所在的子图的标识符作为数组的索引，以将所有顶点加入相应的Bag对象中。
+
+  // 实现连通分量
+  // CC的实现（请见算法4.3）使用了marked[]数组来寻找一个顶点作为每个连通分量中深度优先搜索的起点。递归的深度优先搜索第一次调用的参数是顶点0——它会标记所有与0连通的顶点
+  // 然后构造函数中的for循环会查找每个没有被标记的顶点并递归调用dfs()来标记和它相邻的所有顶点。
+  // 它还使用了一个以顶点作为索引的数组id[]，将同一个连通分量中的顶点和连通分量的标识符关联起来（int值）
+  // 标识符0会被赋予第一个连通分量中的所有顶点，1会被赋予第二个连通分量中的所有顶点，依此类推。这样所有的标识符都会如API中指定的那样在0到count()-1之间。
+
+  // 使用深度优先搜索出图中的所有连通分量
+  // 这里的实现是基于一个由顶点索引的数组id[]。如果v属于第i个连通分量，则id[v]的值为i。
+  // 构造函数会找出一个未被标记的顶点并调用递归函数dfs()来标记并区分出所有和它连通的顶点，如此重复直到所有的顶点都被标记并区分
+
+  // 连通性
+  class CC {
+    constructor(G) {
+      // 保存图
+      this.G = G;
+      // 使用了marked[]数组来寻找一个顶点作为每个连通分量中深度优先搜索的起点
+      this.marked = new Array(this.G.sizeV()).fill(false);
+      // 使用了一个以顶点作为索引的数组id[]，将同一个连通分量中的顶点和连通分量的标识符关联起来（int值）
+      // 标识符0会被赋予第一个连通分量中的所有顶点，1会被赋予第二个连通分量中的所有顶点，依此类推。这样所有的标识符都会如API中指定的那样在0到count()-1之间
+      // 从0开始，第一组连通分量的标识符都为0，然后第二组连通分量的标识符都为1，这样count为2
+      this.id = new Array(this.G.sizeV()).fill(0);
+      // 保留连通分量的个数
+      this.count = 0;
+
+      // 递归的深度优先搜索第一次调用的参数是顶点0——它会标记所有与0连通的顶点
+      // 然后构造函数中的for循环会查找每个没有被标记的顶点并递归调用dfs()来标记和它相邻的所有顶点。
+      for (var s = 0; s < this.G.sizeV(); s++) {
+        // 从0开始，一直到所有的点
+        if (!this.marked[s]) {
+          // 没有被标记，则进行深度遍历这个点，并找到这个点相邻的所有点
+          this.dfs(this.G, s);
+          // 将连通分量的个数+1
+          this.count++;
+        }
+      }
+    }
+
+    // 深度优先遍历
+    dfs(G, v) {
+      // 将标记改为true
+      this.marked[v] = true;
+      this.id[v] = this.count;
+      for (var w = this.G.returnAdj(v).first; w != null; w = w.next) {
+        // 遍历图中v点的相邻的点，如果没有被标记就继续递归dfs没有标记的w
+        if (!this.marked[w.val]) {
+          // 如果v相邻的点没有被标记，则继续进行深度优先遍历
+          this.dfs(G, w.val);
+        }
+      }
+    }
+
+    // v和w连通吗
+    connected(v, w) {
+      return this.id[v] == this.id[w];
+    }
+
+    // v所在的连通分量的标识符（0~count()-1）
+    Id(v) {
+      return this.id[v];
+    }
+
+    // 连通分量数
+    Count() {
+      // 从0开始，第一组连通分量的标识符都为0，然后第二组连通分量的标识符都为1，这样count为2
+      return this.count;
+    }
+  }
+  console.log('-----------------------------------------------------------')
+  // 连通分量测试用例
+  var g3 = new Graph(9);
+  g3.addEdge(0, 1)
+  g3.addEdge(0, 2)
+  g3.addEdge(2, 3)
+  g3.addEdge(4, 8)
+  g3.addEdge(6, 7)
+  g3.addEdge(7, 5)
+  console.log(g3)
+  var cc = new CC(g3);
+  console.log(cc)
+  // 拿到g3的连通分量的个数
+  var M = cc.Count();
+  console.log(M + " components（个连通分量）");
+  // 创建一个数组，然后长度为连通分量的个数，每个值都为一个Bag对象
+  // 从0开始到cc.Count-1，就是连通分量的标识符
+  // 对每一个标识符（下标）比如0，1 ，都生成一个Bag对象
+  var components = new Array(M).fill(null).map(item => new Bag());
+  for (var v = 0; v < g3.sizeV(); v++) {
+    // 从每个顶点开始遍历，找到v所在的连通分量(cc.Id(v))，这样在components里对应的就是一个Bag，然后将这个顶点放到对应连通分量的Bag里
+    // 这样，components数组下标对应了连通分量标识符，然后item对应的是一个Bag，然后将属于这个连通分量的顶点放到Bag中
+    components[cc.Id(v)].add(v);
+  }
+  for (var i = 0; i < M; i++) {
+    var vv = '';
+    // 打印每个连通分量对应的顶点
+    for (var w = components[i].first; w != null; w = w.next) {
+      vv += ` ${w.val}`;
+    }
+    console.log(`标识符${i}对应的连通分量：${vv}`);
+  }
+
+
+  // 通过深度优先遍历解决是否有环以及双色问题
+  // 是否有环，G是无环图吗？假设不存在自环或者平行边
+  // 如何判断有环，进入一个未标记的点，我们从0开始是(G,0,0)，然后在进入一个未标记的 我们是(G,2,0),就这样第二个参数跟第三个就是层级的关系，假设到的最深层，发现全都标记了，
+  // 在最深层的临点里只有一个 并且，和第三个参数一样，这样的话，就说明没环，假设最深层的临点里有多个并且，有于第三个不同的不相等的就可以认为有环
+
+  // 检测环
+  class Cycle {
+    constructor(G) {
+      // 保存吐
+      this.G = G;
+      // 标记数组
+      this.marked = new Array(this.G.sizeV()).fill(false);
+      // 是否有环
+      this.hasCycle = false;
+
+      // 递归的深度优先搜索第一次调用的参数是顶点0——它会标记所有与0连通的顶点
+      // 然后构造函数中的for循环会查找每个没有被标记的顶点并递归调用dfs()来标记和它相邻的所有顶点。
+      for (var s = 0; s < this.G.sizeV(); s++) {
+        // 从0开始，一直到所有的点
+        if (!this.marked[s]) {
+          // 没有被标记，则进行深度遍历这个点，并找到这个点相邻的所有点
+          this.dfs(this.G, s, s);
+        }
+      }
+    }
+
+    // 深度优先遍历
+    dfs(G, v, u) {
+      // 标记这个点已经被遍历了
+      this.marked[v] = true;
+      for (var w = this.G.returnAdj(v).first; w != null; w = w.next) {
+        // 遍历图中v点的相邻的点，如果没有被标记就继续递归dfs没有标记的w
+        if (!this.marked[w.val]) {
+          // 如果v相邻的点没有被标记，则继续进行深度优先遍历
+          this.dfs(this.G, w.val, v);
+        } else if (w.val != u) {
+          // 如果w被标记过，并且w和u不相等，则判定有环
+          this.hasCycle = true;
+        }
+      }
+    }
+
+    // 是否有环方法
+    HasCycle() {
+      return this.hasCycle;
+    }
+  }
+
+  // 符号图
+  // 顶点可以为字符串的符号表图
+  // SymbolGraph
+  // SymbolGraph(filename, delim)    // 根据filename指定的文件构造图，使用delim来分割顶点名
+  // contains(key): boolean          // key是一个顶点吗
+  // index(key): int                 // Key的索引
+  // name(int v): String             // 索引v的顶点名
+  // G(): Graph                      // 隐藏的Graph对象
+  // 用例可以用index()将顶点名转化为索引并在图的处理算法中使用，然后将处理结果用name()转化为顶点名以方便在实际应用中使用。
+
+  // 符号图的数据类型
+  // 符号表来存储字符串key与index(key: value)，在这里就用js的对象
+  // 反向索引 String[] keys，数组的下标是上面的index,数组的元素是上面的key
+  // 无向图 [Bag]，含有Bag对象的数组，数组的下标index，item为Bag对象，存的index的相邻的顶点
+  // 书中的介绍
+  // ❏一个符号表st，键的类型为String（顶点名），值的类型为int（索引）；js对象
+  // ❏一个数组keys[]，用作反向索引，保存每个顶点索引所对应的顶点名；
+  // ❏一个Graph对象G，它使用索引来引用图中顶点。
+
+  // 这个Graph实现允许用例用字符串代替数字索引来表示图中的顶点。它维护了实例变量st（符号表用来映射顶点名和索引）、keys（数组用来映射索引和顶点名）
+  // 和G（使用索引表示顶点的图）。为了构造这些数据结构，代码会将图的定义处理两遍（定义的每一行都包含一个顶点及它的相邻顶点列表，用分隔符sp隔开）。
+
+  // 符号图的数据类型
+  class SymbolGraph {
+    // 输入的字符串或者什么之类的，sp为分割符
+    constructor(stream, sp) {
+      // 符号表  key为符号名（字符串），value为索引
+      this.st = {};
+      // 数组 索引(index) -- 符号名(item)
+      // this.keys = [];
+      // 图
+      this.G = null;
+
+      // 创建流程
+      // 假设我们传入的为数组，sp为分隔符
+      // ["x,y", "m,n"]
+      // 第一遍构建st
+      this.constructST(stream, sp);
+      // 反向创建
+      // 用来获得顶点名的反向索引是一个数组
+      this.keys = new Array(Object.keys(this.st).length).fill('');
+      // 遍历st的key，并给this.keys的各个下标的元素赋值
+      // 索引--符号名
+      for (var name in this.st) {
+        this.keys[this.st[name]] = name;
+      }
+      // 创建图，长度为st的key的个数
+      this.G = new Graph(Object.keys(this.st).length);
+      // 第二遍，创建图
+      this.constructGraph(stream, sp);
+    }
+
+    // key是一个顶点吗
+    contains(s) {
+      return s in this.st;
+    }
+
+    // index(key): int  // Key的索引
+    index(s) {
+      return this.st[s];
+    }
+
+    // name(int v): String // 索引v的顶点名
+    name(v) {
+      return this.keys[v];
+    }
+
+    // G(): Graph // 隐藏的Graph对象
+    graph() {
+      return this.G;
+    }
+
+    // 通过一个点找他周边的点，在图中
+    find(name) {
+      // 通过name找到对应的索引
+      var v = this.index(name);
+      // 拼接字符串
+      var str = `${name}:`;
+      for (var w = this.G.returnAdj(v).first; w != null; w = w.next) {
+        // 通过下标找到name
+        str += ` ${this.name(w.val)}`;
+      }
+      return str;
+    }
+
+    // 第一遍构建st
+    constructST(steam, sp) {
+      // 遍历steam数组，将每个元素以sp分割
+      for (var i = 0; i < steam.length; i++) {
+        // 将字符串结为数组
+        var steamArr = steam[i].split(sp);
+        // 为每个不同的字符关联一个索引
+        for (var j = 0; j < steamArr.length; j++) {
+          // 如果st里没有这个键，则将这个键插为key，以st的长度++的索引为值
+          if (!this.st[steamArr[j]]) {
+            this.st[steamArr[j]] = Object.keys(this.st).length;
+          }
+        }
+      }
+    }
+    // 第二遍构建图
+    constructGraph(steam, sp) {
+      // 将每一行的第一个顶点和该行的其他顶点相连,
+      // 遍历steam数组，分别将每一个数组元素以sp切割成新的数组
+      for (var i = 0; i < steam.length; i++) {
+        // 将字符串结为数组
+        var steamArr = steam[i].split(sp);
+        // 将每一行的第一个顶点和该行的其他顶点相连,
+        var v = this.st[steamArr[0]]; // 得到这个key在st中的val也就是索引
+        for (var j = 1; j < steamArr.length; j++) {
+          // 将顶点v与其余的点挨个相连，去构成图
+          this.G.addEdge(v, this.st[steamArr[j]]);
+        }
+      }
+    }
+  }
+  console.log("-------------------------------------------------------------------------------------")
+  // 来吧 看一次能否成功
+  // SymbolGraph 符号图的测试案例
+  var sg = new SymbolGraph(["唐人街探案三,王宝强,肖央", "士兵突击,王宝强", "误杀,肖央"], ",");
+  console.log(sg);
+  // 测试index、name方法
+  console.log(sg.index("唐人街探案三"), sg.index("误杀"));
+  console.log(sg.name(0), sg.name(4));
+  console.log(sg.find("王宝强"))
+  console.log(sg.find("肖央"))
+  console.log(sg.find("唐人街探案三"))
+  console.log(sg.find("士兵突击"))
+  console.log(sg.find("误杀"))
+
+  // 间隔的度数
+  // 图处理的一个经典问题就是，找到一个社交网络之中两个人间隔的度数。
+  // Kevin Bacon是一个活跃的演员，曾出演过许多电影。我们为图中的每个演员赋一个Kevin Bacon数：Bacon本人为0，
+  // 所有和Kevin Bacon出演过同一部电影的人的值为1，所有（除了Kevin Bacon）和Kevin Bacon数为1的演员出演过同一部电影的其他演员的值为2，依次类推
+  // BreadthFirstPaths才是我们所要的程序，它通过最短路径来找出movies.txt中任意演员的Kevin Bacon数
+  // 这个程序从命令行得到一个起点，从标准输入中接受查询并打印出一条从起点到被查询顶点的最短路径
+  // a为0，a与b,c玩过，所以b,c为1，d和b玩过，所以d为2，e和d玩过，所以e为3
+
+  class DegreesOfSeparation {
+    constructor(stream, sp, source) {
+      // 构建符号图
+      this.sg = new SymbolGraph(stream, sp);
+      // 获得符号图构建的图
+      this.G = this.sg.graph();
+      // 保存source
+      this.source = source;
+      // source是否在sg里
+      if (!this.sg.contains(source)) {
+        console.log(source + "not in database");
+        return;
+      }
+      // 拿到source对应的index
+      this.s = this.sg.index(source);
+      // 找到从s开始到每个点，他们到s的距离
+      this.bfs = new BreadthFirstPaths(this.G, this.s);
+    }
+
+    // 查找某个点间隔的度数
+    findDegree(name) {
+      // sg中是否包含name
+      if (this.sg.contains(name)) {
+        // 包含的话
+        // 找到name对应的索引
+        var t = this.sg.index(name);
+        // bfs中是否存在到t的最短路径
+        if (this.bfs.hasPathTo(t)) {
+          var path = this.sg.name(this.bfs.s) + 'to' + this.sg.name(t) + ": ";
+          for (var x of this.bfs.pathTo(t).reverse()) { // pathTo是一个栈，所以这里需要反转一下 或者其他方式
+            if (x == this.bfs.s) {
+              path += this.sg.name(x); // 起点
+            } else {
+              path += ("-" + this.sg.name(x)); // 过程点
+            }
+          }
+          console.log(path)
+        } else {
+          console.log("not connected")
+        }
+      } else {
+        console.log("not in database")
+      }
+    }
+  }
+
+  console.log('------------------------------------------------------')
+  var ds = new DegreesOfSeparation(["a,b","b,c","c,d"], ",", "a");
+  // var ds = new DegreesOfSeparation(["a,b","b,c","c,d"], ",", "b");
+  console.log(ds)
+  ds.findDegree("d") // a-b-c-d
+  ds.findDegree("c") // a-b-c
+</script>
+
+</html>

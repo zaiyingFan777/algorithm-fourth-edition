@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  
+</body>
+<script>
+  // 插入排序
+  // 插入排序是一种从序列左端开始依次对数据进行排序的算法。
+  // 在排序的过程中，左侧的数据陆续归位，而右侧留下的就是还未被排序的数据。
+  // 从右侧的未排序区域取出一个数据，然后将他插入到已排序的合适的位置上
+  // 步骤：
+  // 1.从第一个元素开始，该元素可以认为已经被排序。
+  // 2.取出下一个元素，在已经排序的元素序列中从后向前扫描。
+  // 3.如果该元素（已排序）大于新元素，将该元素移到下一位置。
+  // 4.重复步骤3，直到找到已排序的元素小于或者等于新元素的位置。
+  // 5.将新元素插到该位置后
+  // 6.重复2~5。
+  // 4 3 2 1 : 3和4去比较    
+  // 3 4 2 1 : 2和3，4去比较
+  // 2 3 4 1 : 1和2，3，4去比较
+  // 1 2 3 4
+  var insertSort = function(nums) {
+    // 假设第一个是已经排序好的，所以最外层循环从i=1开始
+    for(var i = 1; i < nums.length; i++) {
+      // i与前面排好的进行比较选择合适的位置插入
+      var key = nums[i]; // 本轮排序的元素
+      var j = i - 1; // 本轮排序中前面已经排好序的最后一个元素
+      // 将key与nums[j]进行挨个比较并且考虑边界元素
+      while(nums[j] > key && j >= 0) {
+        // 将key与nums[j]更换位置
+        var temp = nums[j];
+        nums[j] = key;
+        nums[j+1] = temp;
+        j--;
+      }
+    }
+    return nums;
+  }
+</script>
+</html>

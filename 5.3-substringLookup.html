@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+
+</body>
+<script>
+  // 5.3 子字符串查找
+  // 字符串的一种基本操作就是子字符串查找：给定一段长度为N的文本和一个长度为M的模式（pattern）字符串，在文本中找到一个和该模式相符的子字符串
+
+  // 5.3.2 暴力子字符串查找算法
+
+  // search()方法就是在文本字符串txt中查找模式字符串pat第一次出现的位置
+  // 这段程序使用了一个指针i跟踪文本，一个指针j跟踪模式。对于每个i，代码首先将j重置为0并不断将它增大，直至找到了一个不匹配的字符或是模式结束（j==M）为止
+  // 如果在模式字符串结束之前文本字符串就已经结束了（i==N-M+1），那么就没有找到匹配：模式字符串在文本中不存在。我们约定在不匹配时返回N的值。
+  // pat模式，txt文本段
+  // 在典型的字符串处理应用程序中，索引j增长的机会很少，因此该算法的运行时间与N成正比
+  // 命题M。在最坏情况下，暴力子字符串查找算法在长度为N的文本中查找长度为M的模式需要～NM次字符比较
+  function search(pat, txt) { // abcd cd m = 2 n = 4 4-2=2
+    // 模式匹配字符串的长度
+    var M = pat.length;
+    // 文本段字符串的长度
+    var N = txt.length;
+    // 用指针i跟踪文本
+    for (var i = 0; i <= N - M; i++) {
+      // 用指针j控制模式匹配，代码首先将j重置为0，并不断增大，直至找到了一个不匹配的字符或者是模式结束(j==M)为止
+      var j;
+      for (j = 0; j < M; j++) {
+        // 因为i在不停的往后移动，每次到达一个新的元素，j会初始化为0，所以我们txt.charAt(i+j)
+        if (txt.charAt(i + j) != pat.charAt(j)) {
+          break;
+        }
+      }
+      // 找到匹配
+      if (j == M) return i;
+    }
+    // 未找到匹配
+    return N;
+  }
+  console.log(search('ABRA', 'ABACADABRAC')); // 6
+  console.log(search('ad', 'abcd')); // 4
+  console.log(search('cd', 'abcd')); // 2
+
+  // 暴力子字符匹配算法的另一种实现（显式回退）
+  // 请注意，这段代码中的i值相当于上一段代码中的i+j：它指向的是文本中已经匹配过的字符序列的末端（i以前指向的是这个序列的开头）
+  // 如果i和j指向的字符不匹配了，那么需要回退这两个指针的值：将j重新指向模式的开头，将i指向本次匹配的开始位置的下一个字符
+  function search2(pat, txt) { // abcd cd
+    // j为模式指针，M为模式的长度
+    var j, M = pat.length;
+    // i为txt指针，N为txt的长度
+    var i, N = txt.length;
+    // 这里面的i相当于上段代码的i+j
+    for (i = 0, j = 0; i < N && j < M; i++) {
+      if (txt.charAt(i) == pat.charAt(j)) {
+        j++;
+      } else {
+        // i = i - j;
+        i -= j;
+        j = 0;
+      }
+    }
+    if (j == M) {
+      // 找到匹配
+      return i - M;
+    } else {
+      // 未找到匹配
+      return N;
+    }
+  }
+  console.log(search2('ABRA', 'ABACADABRAC')); // 6
+  console.log(search2('ad', 'abcd')); // 4
+  console.log(search2('cd', 'abcd')); // 2
+
+  // 5.3.3 Knuth-Morris-Pratt子字符串查找算法
+  // Knuth、Morris和Pratt发明的算法的基本思想是当出现不匹配时，就能知晓一部分文本的内容（因为在匹配失败之前它们已经和模式相匹配）。我们可以利用这些信息避免将指针回退到所有这些已知的字符之前。
+  // 例如，当在文本A A B A A B A A A A中查找模式A A B A A A时，我们首先会在模式的第6个字符处发现匹配失败，但是应该在第3个字符处继续查找，否则就会错过已经匹配的部分。KMP算法的主要思想是提前判断如何重新开始查找，而这种判断只取决于模式本身。
+  // 5.3.3.1 模式指针的回退
+  // 在KMP子字符串查找算法中，不会回退文本指针i，而是使用一个数组dfa[][]来记录匹配失败时模式指针j应该回退多远
+  // 对于每个字符c，在比较了c和pat.charAt(j)之后，dfa[c][j]表示的是应该和下个文本字符比较的模式字符的位置
+  // 在查找中，dfa[txt.charAt(i)][j]是在比较了txt.charAt(i)和pat.charAt(j)之后应该和txt.charAt(i+1)比较的模式字符位置
+  // 在匹配时会继续比较下一个字符，因此dfa[pat.charAt(j)][j]总是j+1。在不匹配时，不仅可以知道txt.charAt(i)的字符，也可以知道正文中的前j-1个字符，它们就是模式中的前j-1个字符
+
+  // 5.3.3.2 KMP查找算法
+  // 只要计算出了dfa[][]数组，就得到了后面框注所示的子字符串查找算法：当i和j所指向的字符匹配失败时（从文本的i-j+1处开始检查模式的匹配情况），模式可能匹配的下一个位置应该从i-dfa[txt.charAt(i)][j]处开始
+  // 按照算法，从该位置开始的dfa[txt.charAt(i)][j]个字符和模式的前dfa[txt.charAt(i)][j]个字符应该相同，因此无需回退指针i，只需要将j设为dfa[txt.charAt(i)][j]并将i加1即可，这正是当i和j所指向的字符匹配时的行为。
+
+  // 5.3.3.3 DFA模拟
+  // 说明这个过程的一种较好的方法是使用确定有限状态自动机（DFA）。事实上，由它的名字你也可以看出，dfa[][]数组定义的正是一个确定有限状态自动机
+  // KMP子字符串查找算法（DFA模拟）
+  // function search(txt) {
+  //   // 模拟DFA处理文本txt时的操作
+  //   var i, j, N = txt.length,
+  //     M = pat.length;
+  //   for (i = 0, j = 0; i < N && j < M; i++) {
+  //     j = dfa[txt.charAt(i)][j];
+  //     if (j == M) {
+  //       // 找到匹配
+  //       return i - M;
+  //     } else {
+  //       // 未找到匹配
+  //       return N;
+  //     }
+  //   }
+  // }
+  // 要体验在DFA中的子字符串查找操作，你可以先想象一下它所完成的两件最简单的任务
+
+
+  // 算法5.6 Knuth-Morris-Pratt字符串查找算法
+  class KMP {
+    constructor(pat) {
+      // 由模式字符串构造DFA
+      this.pat = pat;
+      // 统计pat的长度
+      this.M = pat.length;
+      // 字符表长度
+      this.R = 256;
+      // 在KMP子字符串查找算法中，不会回退文本指针i，而是使用一个数组dfa[][]来记录匹配失败时模式指针j应该回退多远
+      // 对于每个字符c，在比较了c和pat.charAt(j)之后，dfa[c][j]表示的是应该和下个文本字符比较的模式字符的位置
+      // 在查找中，dfa[txt.charAt(i)][j]是在比较了txt.charAt(i)和pat.charAt(j)之后应该和txt.charAt(i+1)比较的模式字符位置
+      // ！！！在匹配时会继续比较下一个字符，因此dfa[pat.charAt(j)][j]总是j+1。
+      // 在不匹配时，不仅可以知道txt.charAt(i)的字符，也可以知道正文中的前j-1个字符，它们就是模式中的前j-1个字符
+      this.dfa = new Array(this.R).fill(null).map(item => new Array(this.M).fill(0));
+      // KMP子字符串查找算法中DFA的构造
+      // 初始化dfa[pat.charAt(0)][0]为1
+      this.dfa[this.pat.charCodeAt(0)][0] = 1;
+      // 初始化确定有限状态自动机dfa
+
+      // 构5.3.4造DFA
+      // 我们其实并不想回退，只是想将DFA重置到适当的状态，就好像已经回退过文本指针一样。
+      // 由以上的讨论可以得到右侧框注这段短小精悍的代码来构造给定模式的DFA。对于每个j，它将会：
+      // ❏将dfa[][X]复制到dfa[][j]（对于匹配失败的情况）；
+      // ❏将dfa[pat.charAt(j)][j]设为j+1（对于匹配成功的情况）；
+      // ❏更新X。
+      for (var X = 0, j = 1; j < this.M; j++) {
+        // 计算dfa[][j]
+        for (var c = 0; c < this.R; c++) {
+          // 复制匹配失败情况下的值
+          this.dfa[c][j] = this.dfa[c][X];
+        }
+        // 设置匹配成功情况下的值
+        // 总有dfa[pat.charAt(j)][j] = j+1;
+        this.dfa[this.pat.charCodeAt(j)][j] = j + 1;
+        // 更新重启状态
+        // X的下一个值是dfa[pat.charAt(j)] [X]
+        console.log(X, '1111', j)
+        X = this.dfa[this.pat.charCodeAt(j)][X];
+        console.log(X, '2222')
+      }
+      console.log(this.dfa)
+    }
+
+    // 当我们在标记为j的状态中检查文本中的第i个字符时，自动机的行为是这样的：“沿着转换dfa[txt.charAt(i)][j]前进并继续检查下一个字符（将i加1）。”
+    // 对于一个匹配的转换，就向右移动一位，因为dfa[pat.charAt(j)] [j]的值总是j+1；对于一个非匹配转换，就在向左移动
+    // 自动机每次从左向右从文本中读取一个字符并移动到一个新的状态，我们还包含了一个不会进行任何转换的停止状态M
+    // 自动机从状态0开始：如果自动机到达了状态M，那么就在文本中找到了和模式相匹配的一段子字符串（我们称这种情况为确定有限状态自动机识别了该模式）；
+    // 如果自动机在文本结束时都未能到达状态M，那么就可以知道文本中不存在匹配该模式的子字符串
+    // 每个模式字符串都对应着一个自动机（由保存了所有转换的dfa[][]数组表示）
+    search(txt) {
+      // 在txt上模拟DFA的运行
+      var i, j, N = txt.length,
+        M = this.pat.length;
+      // 在KMP子字符串查找算法中，不会回退文本指针i，而是使用一个数组dfa[][]来记录匹配失败时模式指针j应该回退多远
+      for (i = 0, j = 0; i < N && j < M; i++) {
+        // ！！！只要计算出了dfa[][]数组，就得到了后面框注所示的子字符串查找算法：当i和j所指向的字符匹配失败时（从文本的i-j+1处开始检查模式的匹配情况），
+        // 模式可能匹配的下一个位置应该从i-dfa[txt.charAt(i)][j]处开始
+        // 按照算法，从该位置开始的dfa[txt.charAt(i)][j]个字符和模式的前dfa[txt.charAt(i)][j]个字符应该相同，因此无需回退指针i，
+        // 只需要将j设为dfa[txt.charAt(i)][j]并将i加1即可，这正是当i和j所指向的字符匹配时的行为。
+
+        // ！！！字符匹配：将j设为dfa[txt.charAt(i)][j] = dfa[pat.charAt(j)][j] = j + 1
+        // ！！！字符不匹配：将j设为dfa[txt.charAt(i)][j]意味着将模式左移并将pat.charAt(j)和txt.charAt(i+1)对齐
+        j = this.dfa[txt.charCodeAt(i)][j];
+      }
+      if (j == M) {
+        // 找到匹配(到达匹配模式字符串的结尾)
+        return i - M;
+      } else {
+        // 未找到匹配（到达文本字符串的结尾）
+        return N;
+      }
+    }
+  }
+  console.log('--------------------------------------------------------------------')
+  console.log('KMP算法')
+  var kmp0 = new KMP('AACAA');
+  console.log(kmp0.search('AABRAACADABRAACAADABRA'))
+  var kmp = new KMP('ABABAC');
+  console.log(kmp.search('BCBAABACAABABACAA'))
+  console.log('--------------------------------------------------------------------')
+
+  // 5.3.4 Boyer-Moore字符串查找算法
+  // 当可以在文本字符串中回退时，如果可以从右向左扫描模式字符串并将它和文本匹配，那么就能得到一种非常快的字符串查找算法。
+  // 在查找子字符串B A A BB A A时，如果匹配了第七个和第六个字符，但在第5个字符处匹配失败，那马上就可以将模式向右移动7个位置并继续检查文本中的第14个字符。这是因为部分匹配找到了X A A而X不是B，而这3个连续的字符在模式中是唯一的
+
+  // 5.3.4.2 起点
+  // 要实现启发式地处理不匹配的字符，我们使用数组right[]记录字母表中的每个字符在模式中出现的最靠右的地方（如果字符在模式中不存在则表示为-1）
+  // 这个值揭示了如果该字符出现在文本中且在查找时造成了一次匹配失败，应该向右跳跃多远
+  // 要将right[]数组初始化，首先将所有元素的值设为-1，然后对于0到M-1的j，将right[pat.charAt(j)]设为j
+
+  // 5.3.4.3 子字符串的查找
+  // 我们用一个索引i在文本中从左向右移动，用另一个索引j在模式中从右向左移动.内循环会检查正文和模式字符串在位置i是否一致
+  // 如果从M-1到0的所有j, txt.charAt(i+j)都和pat.charAt(j)相等，那么就找到了一个匹配。否则匹配失败，就会遇到以下三种情况。
+  // ❏如果造成匹配失败的字符不包含在模式字符串中，将模式字符串向右移动j+1个位置（即将i增加j+1）,将j重置为M-1
+  // ❏如果造成匹配失败的字符包含在模式字符串中，那就可以使用right[]数组来将模式字符串和文本对齐，
+  // 使得该字符和它在模式字符串中出现的最右位置相匹配（将i增大j - right[c]来将文本和模式中的N对其，将j重置为M-1）
+  // ❏如果这种方式无法增大i，那就直接将i加1来保证模式字符串至少向右移动了一个位置（将j重置为M-1）
+
+  // 请注意，使用-1表示right[]数组中相应字符不包含在模式字符串中，这个约定能够将前两种情况合并（将i增大j-right[txt.charAt(i+j)]）。
+
+  // 命题O。在一般情况下，对于长度为N的文本和长度为M的模式字符串，使用了Boyer-Moore的子字符串查找算法通过启发式处理不匹配的字符需要～N/M次字符比较。
+  // 算法5.7 Boyer-Moore字符串匹配算法（启发式地处理不匹配的字符）
+
+  // 思路：：：：
+  // 这段子字符串查找算法的实现的构造函数根据模式字符串构造了一张每个字符在模式中出现的最右位置的表格。
+  // 查找算法会从右向左扫描模式字符串，并在匹配失败时通过跳跃将文本中的字符和它在模式字符串中出现的最右位置对齐。
+  class BoyerMoore {
+    constructor(pat) {
+      // 保存模式字符串
+      this.pat = pat;
+      this.R = 256;
+      this.M = this.pat.length;
+      // 跳跃表
+      // 举例
+      //  N E E D L E
+      //  0 1 2 3 4 5
+      // C     right[c]
+      // A       -1 
+      // B       -1
+      // C       -1
+      // D        3
+      // E        5
+      // ...     -1
+      // L        4
+      // M        -1
+      // N       0
+      // 跳跃表的计算、
+      // 1.要将right[]数组初始化，首先将所有元素的值设为-
+      // 2.然后对于0到M-1的j，将right[pat.charAt(j)]设为j
+
+      // 不包含在模式字符串中的字符的值为-1；
+      this.right = new Array(this.R).fill(-1);
+      // 包含在模式字符串中的字符串的值为
+      for(var j = 0; j < this.M; j++) {
+        // 他在其中出现的最右位置
+        this.right[this.pat.charCodeAt(j)] = j;
+      }
+    }
+
+    search(txt) {
+      // 在txt中查找模式字符串
+      var N = txt.length;
+      var M = this.pat.length;
+      // 定义skip
+      var skip;
+      // i从左到右遍历txt，每次跳跃skip
+      for(var i = 0; i <= N - M; i += skip) {  // abcd cd
+        // 模式字符串和文本在位置i匹配吗？
+        skip = 0;
+        // 模式字符串从右到左遍历模式字符串
+        for (var j = M - 1; j >= 0; j--) {
+          // 如果txt和pat字符不对
+          if (this.pat.charCodeAt(j) != txt.charCodeAt(i + j)) {
+            // ❏如果造成匹配失败的字符不包含在模式字符串中，将模式字符串向右移动j+1个位置（即将i增加j+1）,将j重置为M-1，j + 1等价于 j - (- 1)
+            // ❏如果造成匹配失败的字符包含在模式字符串中，那就可以使用right[]数组来将模式字符串和文本对齐，
+            // 使得该字符和它在模式字符串中出现的最右位置相匹配（将i增大j - right[c]来将文本和模式中的N对其，将j重置为M-1）
+            // ❏如果这种方式无法增大i，那就直接将i加1来保证模式字符串至少向右移动了一个位置（将j重置为M-1）
+            skip = j - this.right[txt.charCodeAt(i + j)];
+            // 这种就对应j - right[txt.charCodeAt(i+j)] < 1，不能让模式串往左移，只能将i+1，让i += 1
+            if (skip < 1) {
+              skip = 1;
+              break;
+            }
+          }
+        }
+        // 找到匹配
+        if (skip == 0) {
+          return i;
+        }
+      }
+      // 未找到匹配
+      return N;
+    }
+  }
+  console.log('-------------------------------------------------------------------')
+  var bm1 = new BoyerMoore('AACAA');
+  console.log(bm1.search('AABRAACADABRAACAADABRA')) // 12
+  var bm2 = new BoyerMoore('ABABAC');
+  console.log(bm2.search('BCBAABACAABABACAA')) // 9
+  console.log('-------------------------------------------------------------------')
+
+  // 5.3.5 Rabin-Karp指纹字符串查找算法
+  // M.O.Rabin和R.A.Karp发明了一种完全不同的基于散列的字符串查找算法。我们需要计算模式字符串的散列函数，然后用相同的散列函数计算文本中所有可能的M个字符的子字符串散列值并寻找匹配
+  // 如果找到了一个散列值和模式字符串相同的子字符串，那么再继续验证两者是否匹配。
+  // 5.3.5.1 基本思想
+  // 长度为M的字符串对应着一个R进制的M位数
+  // 为了用一张大小为Q的散列表来保存这种类型的键，需要一个能够将R进制的M位数转化为一个0到Q-1之间的int值散列函数。除留余数法（请见3.4节）是一个很好的选择：将该数除以Q并取余
+  // 5.3.5.2 计算散列函数
+  // 对于5位的数值，只需使用int值即可完成所有所需的计算。但如果M是100或者1000怎么办？这里使用的是Horner方法
+  // 这段代码计算了用char值数组表示的R进制的M位数的散列函数，所需时间与M成正比
+  // 将M作为参数传递给该方法，这样就可以将它同时用于模式字符串和正文。
+  // 对于这个数中的每一位数字，将散列值乘以R，加上这个数字，除以Q并取其余数
+
+  // Horner方法，用于除留余数法计算散列值
+  // hash(key, M) {
+  //   // 计算key[0..M-1]的散列值
+  //   var h = 0;
+  //   for(var j = 0; j < M; j++) {
+  //     h = (R * h + key.charCodeAt(j)) % Q;
+  //   }
+  //   return h;
+  // }
+
+  // 5.3.5.3 关键思想
+  // Rabin-Karp算法的基础是对于所有位置i，高效计算文本中i+1位置的子字符串散列值
+  // 取余操作的一个基本性质是如果在每次算术操作之后都将结果除以Q并取余，这等价于在完成了所有算术操作之后再将最后的结果除以Q并取余
+
+  // 假设已知h（xi）=ximod Q。将模式字符串右移一位即等价于将xi替换为：
+  // 即将它减去第一个数字的值，乘以R，再加上最后一个数字的值
+
+  // 5.3.5.4 实现
+  // 构造函数为模式字符串计算了散列值patHash并在变量RM中保存了RM-1mod Q的值
+  // hashSearch()方法开头计算了文本的前M个字母的散列值并将它和模式字符串的散列值进行比较
+  // 如果未能匹配，它将会在文本中继续前进，用以上讨论的方法计算由位置i开始的M个字符的散列值，将它保存在txtHash变量中并将每个新的散列值和patHash进行比较
+  // 在txtHash的计算中，额外加上了一个Q来保证所有的数均为正，这样取余操作才能够得到预期的结果
+
+
+  // 算法5.8 Rabin-Karp指纹字符串查找算法
+  // 这里只用java版本实现把
+  // 见5.3-RK.java
+</script>
+
+</html>

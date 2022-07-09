@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+
+</body>
+<script>
+  // 红黑树
+  // 只要谨慎地使用左旋转、右旋转和颜色转换这三种简单的操作，我们就能够保证插入操作后红黑树和2-3树的一一对应关系
+  // 在沿着插入点到根结点的路径向上移动时在所经过的每个结点中顺序完成以下操作，我们就能完成插入操作：
+  // ❏如果右子结点是红色的而左子结点是黑色的，进行左旋转；
+  // ❏如果左子结点是红色的且它的左子结点也是红色的，进行右旋转；
+  // ❏如果左右子结点均为红色，进行颜色转换。
+
+  // 参照：https://github.com/reneargento/algorithms-sedgewick-wayne/blob/master/src/chapter3/section3/RedBlackBST.java
+
+  // 含有color变量的Node对象
+  class Node {
+    constructor(key, val, N, color) {
+      this.key = key; // 键
+      this.val = val; // 值
+      // 指向子树的链接
+      this.left = null;
+      this.right = null;
+      this.N = N; // 以该结点为根的子树中的结点总数
+      this.color = color; // 由其父节点指向它的链接的颜色
+    }
+  }
+
+  class RedBlackBST {
+    constructor() {
+      this.root = null;
+    }
+
+    // h Node
+    isRed(h) {
+      if (h == null) return false;
+      return h.color == 'RED';
+    }
+
+    // 右子树为红，转移到左子树为红 h Node
+    rotateLeft(h) {
+      var x = h.right;
+      h.right = x.left;
+      x.left = h;
+      x.color = h.color;
+      h.color = 'RED';
+      x.N = h.N;
+      h.N = 1 + this.$$size(h.left) + this.$$size(h.right);
+      return x;
+    }
+
+    // 左子树为红，转移到右子树为红 h Node
+    rotateRight(h) {
+      var x = h.left;
+      h.left = x.right;
+      x.right = h;
+      x.color = h.color;
+      h.color = 'RED';
+      x.N = h.N;
+      h.N = 1 + this.$$size(h.left) + this.$$size(h.right);
+      return x;
+    }
+
+    // 颜色转换
+    // 方法flipCo-lors()来转换一个结点的两个红色子结点的颜色。除了将子结点的颜色由红变黑之外，我们同时还要将父结点的颜色由黑变红。
+    flipColors2(h) {
+      h.color = 'RED';
+      h.left.color = 'BLACK';
+      h.right.color = 'BLACK';
+    }
+
+    // 根节点红，两个子节点为黑：将根节点变为黑，子节点变为红
+    // 根节点黑，两个子节点为红：将根节点变为红，子节点变为黑
+    // 这里的flipColors()方法将会补全三条链接的颜色，而不是正文中实现插入操作时实现的flipColors()方法。对于删除，我们会将父结点设为BLACK（黑）而将两个子结点设为RED（红）。
+    flipColors(h) {
+      if ((this.isRed(h) && !this.isRed(h.left) && !this.isRed(h.right)) ||
+        (!this.isRed(h) && this.isRed(h.left) && this.isRed(h.right))) {
+        h.color = h.color == 'RED' ? 'BLACK' : 'RED';
+        h.left.color = h.left.color == 'RED' ? 'BLACK' : 'RED';
+        h.right.color = h.right.color == 'RED' ? 'BLACK' : 'RED';
+      }
+    }
+
+    size() {
+      return this.$$size(this.root);
+    }
+
+    // $$假设为私有方法
+    $$size(h) {
+      if (h == null) {
+        return 0;
+      }
+      return h.N;
+    }
+
+    // 是否为空
+    isEmpty() {
+      return this.$$size(this.root) == 0;
+    }
+
+    // 插入
+    put(key, val) {
+      // 查找key，找到则更新其值，否则为他新建一个结点
+      this.root = this.$$put(this.root, key, val);
+      // 指向根节点的color永远要为black
+      this.root.color = "BLACK";
+    }
+
+    $$put(h, key, val) {
+      // 标准的插入操作，和父节点用红色链接相连
+      if (h == null) {
+        return new Node(key, val, 1, "RED");
+      }
+      // 比较值
+      var cmp = key.localeCompare(h.key);
+      if (cmp < 0) {
+        // 插入的值小于h.key，递归左子树
+        h.left = this.$$put(h.left, key, val);
+      } else if (cmp > 0) {
+        // 插入的值大于h.key，递归右子树
+        h.right = this.$$put(h.right, key, val);
+      } else {
+        // 已经存在插入的key，则更新值即可
+        h.val = val;
+      }
+      // 除了递归调用后的三条if语句，红黑树中put()的递归实现和二叉查找树中put()的实现完全相同。
+      // 它们在查找路径上保证了红黑树和2-3树的一一对应关系，使得树的平衡性接近完美。
+      // 第一条if语句会将任意含有红色右链接的3-结点（或临时的4-结点）向左旋转；
+      // 第二条if语句会将临时的4-结点中两条连续红链接中的上层链接向右旋转；
+      // 第三条if语句会进行颜色转换并将红链接在树中向上传递（详情请见正文）。
+      // 插入或更新key后，需要从下往上递归 并重新平衡规整整个红黑树
+      // 每层都会重新处理树
+      // 这里不能用if else if 因为处理完一种结构后还可能产生另外一种
+      if (this.isRed(h.right) && !this.isRed(h.left)) {
+        // ❏如果右子结点是红色的而左子结点是黑色的，进行左旋转；
+        h = this.rotateLeft(h);
+      }
+      if (this.isRed(h.left) && this.isRed(h.left.left)) {
+        // ❏如果左子结点是红色的且它的左子结点也是红色的，进行右旋转；
+        h = this.rotateRight(h);
+      }
+      if (this.isRed(h.left) && this.isRed(h.right)) {
+        // ❏如果左右子结点均为红色，进行颜色转换。
+        this.flipColors(h);
+      }
+      // 重新计算每层N
+      h.N = this.$$size(h.left) + this.$$size(h.right) + 1;
+      return h;
+    }
+
+    // 查询
+    get(key) {
+      if (key == null) {
+        return null;
+      }
+
+      return this.$$get(this.root, key);
+    }
+
+    $$get(h, key) {
+      if (node == null) {
+        return null;
+      }
+      // 比较值
+      var cmp = key.localeCompare(h.key);
+      if (cmp < 0) {
+        // 查看左子树
+        return this.$$get(h.left, key);
+      } else if (cmp > 0) {
+        // 查看右子树
+        return this.$$get(h.right, key);
+      } else {
+        return h.val;
+      }
+    }
+
+    contains(key) {
+      if (key == null) {
+        console.error("Argument to contains() cannot be null");
+        return;
+      }
+      return this.$$get(key) != null;
+    }
+
+    // 删除最小
+    // ！！！！我们注意到从树底部的3-结点中删除键是很简单的，但2-结点则不然。 如果是 a b c删除一个a 会导致不平衡，如果3-则不会出现让树不平衡的情况
+    // 从2-结点中删除一个键会留下一个空结点，一般我们会将它替换为一个空链接，但这样会破坏树的完美平衡性
+    // 这样做：为了保证我们不会删除一个2-结点，我们沿着左链接向下进行变换，确保当前结点不是2-结点（可能是3-结点，也可能是临时的4-结点）。
+    // 接着看$$deleteMin方法上面的注释
+    deleteMin() {
+      if (this.isEmpty()) {
+        return;
+      }
+
+      // root的左子树和右子树都是黑色，则修改root的颜色为红色
+      // 如果要删除的root就是一个2-，需要将root的color改为red，然后变换颜色 让左右两个子节点变为红色，根节点变为黑色，也就是变为一个4-
+      if (!this.isRed(this.root.left) && !this.isRed(this.root.right)) {
+        this.root.color = 'RED';
+      }
+
+      // 删除操作
+      this.root = this.$$deleteMin(this.root);
+
+      // 删除完 如果这颗树不是空的，则将root.color改为黑色
+      if (!this.isEmpty()) {
+        this.root.color = 'BLACK';
+      }
+    }
+
+    // 首先，根结点可能有两种情况。
+    // 如果根是2-结点且它的两个子结点都是2-结点，我们可以直接将这三个结点变成一个4-结点
+    // 否则我们需要保证根结点的左子结点不是2-结点，如有必要可以从它右侧的兄弟结点“借”一个键来。
+    // ❏如果当前结点的左子结点不是2-结点，完成；
+    // ❏如果当前结点的左子结点是2-结点而它的亲兄弟结点不是2-结点，将左子结点的兄弟结点中的一个键移动到左子结点中；
+    // ❏如果当前结点的左子结点和它的亲兄弟结点都是2-结点，将左子结点、父结点中的最小键和左子结点最近的兄弟结点合并为一个4-结点，
+    // 使父结点由3-结点变为2-结点或者由4-结点变为3-结点。
+
+    // 在遍历的过程中执行这个过程，最后能够得到一个含有最小键的3-结点或者4-结点，然后我们就可以直接从中将其删除，
+    // 将3-结点变为2-结点，或者将4-结点变为3-结点。然后我们再回头向上分解所有临时的4-结点。（！！！！）
+    $$deleteMin(h) {
+      // 因为我们会把2-转为3-或者4-所以当h.left为null的时候就直接删除即可
+      if (h.left == null) {
+        return null;
+      }
+      // 如果h的左子节点是黑的，并且h的左子节点的左子节点也是黑的，
+      // 如果左边子节点是2-需要处理，不是则不需要处理，直接删除
+      if (!this.isRed(h.left) && !this.isRed(h.left.left)) {
+        // h的左子节点为2-所以需要处理
+        h = this.moveRedLeft(h);
+      }
+      h.left = this.$$deleteMin(h.left);
+      // 平衡
+      return this.balance(h);
+    }
+
+    // 删除最大
+    // https://blog.csdn.net/fengkeyleaf/article/details/117413840
+    // 这次我们不断检查右子树，同时保证经过的当前结点不是2-结点；
+    deleteMax() {
+      if (this.isEmpty()) {
+        return;
+      }
+
+      if (!this.isRed(this.root.left) && !this.isRed(this.root.right)) {
+        this.root.color = 'RED';
+      }
+
+      this.root = this.$$deleteMax(this.root);
+
+      if (!this.isEmpty()) {
+        this.root.color = 'BLACK';
+      }
+    }
+
+    $$deleteMax(h) {
+      // 向左子树借点   1==2这种就满足
+      if (this.isRed(h.left)) {
+        h = this.rotateRight(h);
+      }
+
+      // 删除最大点
+      if (h.right == null) {
+        return null;
+      }
+
+      // h.right和h.right.left都是黑色的, 2-
+      // 保证经过得结点不能为2-
+      // 保证每个节点
+      // 我们沿着右子树旅行
+      // 是 3 节点或 4 节点。
+      if (!this.isRed(h.right) && !this.isRed(h.right.left)) {
+        h = this.moveRedRight(h);
+      }
+
+      h.right = this.$$deleteMax(h.right);
+      return this.balance(h);
+    }
+
+    // 删除
+    // 在查找路径上进行和删除最小键相同的变换同样可以保证在查找过程中任意当前结点均不是2-结点。
+    // 点均不是2-结点。如果被查找的键在树的底部，我们可以直接删除它。如果不在，我们需要将它和它的后继结点交换，就和二叉查找树一样
+    // 因为当前结点必然不是2-结点，问题已经转化为在一棵根结点不是2-结点的子树中删除最小的键，我们可以在这棵子树中使用前文所述的算法
+    // 以在这棵子树中使用前文所述的算法。和以前一样，删除之后我们需要向上回溯并分解余下的4-结点。
+
+    // 上文为书中得删除，这里为此文章的删除
+    // https://blog.csdn.net/fengkeyleaf/article/details/117413873
+    // 其实在BST的删除中，我们运用了“替换（Replace）的思想，将需要删除的结(node)点用其后继结点去替换，然后在 node.right 中删除deleteMin()。
+    // 那么，对于红黑树的删除，我们依然可以使用同样的删除思想去做。但是我们需要确保红黑树的完美平衡性，不能像BST那样简单替换删除就行。
+    // 那么，现在红黑树的删除问题已经剩下如何保证完美平衡性了。
+    // 利器：那就是2-3-4树，或者先自顶向下转换2-结点，删除之后，自底向上分解临时4-结点。
+    delete(key) {
+      if (key == null) {
+        console.error("Key cannot be null");
+        return;
+      }
+
+      if (this.isEmpty() || !this.contains(key)) {
+        return;
+      }
+
+      // 先将根节点变换
+      if (!this.isRed(this.root.left) && !this.isRed(this.root.right)) {
+        this.root.color = 'RED';
+      }
+
+      this.root = this.$$delete(this.root, key);
+
+      if (!this.isEmpty()) {
+        this.root.color = 'BLACK';
+      }
+    }
+
+    $$delete(h, key) {
+      if (h == null) {
+        return null;
+      }
+      if (key.localeCompare(h.key) < 0) {
+        // 如果查找键(key) < root.key，我们应该在root的左子树里面继续查找，并和deleteMin()一样，保证当前结点不是2-结点；
+        if (!this.isRed(h.left) && h.left != null && !this.isRed(h.left.left)) {
+          // 保证当前结点不是2-
+          h = this.moveRedLeft(h);
+        }
+        h.left = this.$$delete(h.left, key);
+      } else {
+        // 如果key > root.key，我们应该在root的右子树里面继续查找，并和deleteMax()一样，保证当前结点不是2-结点；
+        // 如果key == root.key，我们用后继结点替换思想，进行删除，将问题转化为deleteMin()；
+
+        // 向子节点借元素  72 = 67（-） - 这样的就会直接变换成 67(-) = 72
+        if (this.isRed(h.left)) {
+          h = this.rotateRight(h);
+        }
+
+        // 找到了要删除得key，并且h的右子树为null，就无需找替代结点   比如 1-2(=代表红)-3 删除3，
+        // moveRedRight本书中的!this.left.left ，1=2(-)=3  => 1(-)=2=3 => 1(-)=2再变为1=2(-)
+        // moveRedRight this.left.left，变为2=1(-)=3 => 2=1(-)
+        if (key.localeCompare(h.key) == 0 && h.right == null) {
+          return null;
+        }
+
+        // h.right和h.right.left都是黑色的, 2-
+        // 保证经过得结点不能为2-
+        // 保证每个节点
+        // 我们沿着右子树旅行
+        // 是 3 节点或 4 节点。
+        // 保证右边经过的不是2-
+        // h.key大于key，需要往右边走
+        if (!this.isRed(h.right) && h.right != null && !this.isRed(h.right.left)) {
+          h = this.moveRedRight(h);
+        }
+        // 找到了结点，但是它的右子树有结点，因此需要找到右子树的最小值删除得到她，并替换要被删除的结点
+        if (key.localeCompare(h.key) == 0) {
+          // 找到要删除的结点的右子树的最小值，删除并取出来替代要被删除的点
+          var aux = this.$$min(h.right);
+          h.key = aux.key;
+          h.val = aux.val;
+          // 删除右子树的最小值
+          h.right = this.$$deleteMin(h.right);
+        } else {
+          // 继续遍历右子树
+          h.right = this.$$delete(h.right, key);
+        }
+      }
+      return this.balance(h);
+    }
+
+    min() {
+      if (this.root == null) {
+        console.error("Empty binary search tree");
+        return;
+      }
+
+      return this.$$min(this.root).key;
+    }
+
+    $$min(h) {
+      if (h.left == null) {
+        return h;
+      }
+
+      return this.$$min(h.left);
+    }
+
+    moveRedLeft(h) {
+      // Assuming that node is red and both node.left and node.left.left are black,
+      // make node.left or one of its children red
+      // 假设结点h为红色，h.left和h.left.left都是黑色，
+      // 将h.left或者h.left的子节点之一变红
+      // 这里的flipColors()方法将会补全三条链接的颜色，而不是正文中实现插入操作时实现的flipColors()方法。对于删除，我们会将父结点设为BLACK（黑）而将两个子结点设为RED（红）。
+      this.flipColors(h);
+
+      // h的兄弟结点是一个3-
+      if (h.right != null && this.isRed(h.right.left)) {
+        h.right = this.rotateRight(h.right);
+        h = this.rotateLeft(h);
+        this.flipColors(h);
+      }
+
+      return h;
+    }
+
+    moveRedRight(h) {
+      //Assuming that node is red and both node.right and node.right.left are black,
+      // make node.right or one of its children red
+      //假设节点是红色的并且node.right和node.right.left都是黑色的，
+      // 使 node.right 或其子节点之一变为红色
+      this.flipColors(h);
+
+      // 因为此时，左边多了一个红色节点，
+      // 我们可以把它移到树的右边
+      // 但与教科书中的代码不同，
+      // 即：!isRed( root.left.left )教科书是这样子的，这是中文版得错误，英文是没问题的
+      // ps其实是都可以this.isRed(h.left.left)或者!this.isRed(h.left.left)
+      if (h.left != null && this.isRed(h.left.left)) {  // 其实是都可以的
+        h = this.rotateRight(h);
+        this.flipColors(h);
+      }
+
+      return h;
+    }
+
+    // balance 平衡
+    balance(h) {
+      if (h == null) {
+        return null;
+      }
+
+      if (this.isRed(h.right) && !this.isRed(h.left)) {
+        h = this.rotateLeft(h);
+      }
+
+      if (this.isRed(h.left) && this.isRed(h.left.left)) {
+        h = this.rotateRight(h);
+      }
+
+      if (this.isRed(h.left) && this.isRed(h.right)) {
+        this.flipColors(h);
+      }
+
+      h.N = this.$$size(h.left) + 1 + this.$$size(h.right);
+
+      return h;
+    }
+  }
+
+  var rbBST = new RedBlackBST();
+  rbBST.put('S', 0);
+  rbBST.put('E', 1);
+  rbBST.put('A', 2);
+  rbBST.put('R', 3);
+  rbBST.put('C', 4);
+  // rbBST.deleteMin();
+  rbBST.deleteMax();
+  // -----------------------------
+  // rbBST.put('A', 0);
+  // rbBST.put('B', 1);
+  // rbBST.put('C', 2);
+  // rbBST.put('D', 3);
+  // rbBST.put('C', 4);
+  console.log(rbBST)
+</script>
+
+</html>

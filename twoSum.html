@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  
+</body>
+<script>
+  // 优化版的twosum
+  // 归并排序所需的时间和NlogN成正比，二分查找所需的时间和logN成正比，因此整个算法的运行时间和NlogN成正比。
+  // 1.对数组进行并归排序
+  // 2.二分查找
+  // ❏如果二分查找不成功则会返回-1，因此我们不会增加计数器的值；
+  // ❏如果二分查找返回的j＞i，我们就有a[i] + a[j] = 0，增加计数器的值；
+  // ❏如果二分查找返回的j在0和i之间，我们也有a[i] + a[j] = 0，但不能增加计数器的值，以避免重复计数。
+  function mergeSort(arr) {
+    // 序列长度为1时退出
+    if (arr.length < 2) return arr;
+    // 将序列分为两个子序列，这一块用到D&C中的分割
+    const middle = Math.floor(arr.length / 2);
+    const left = arr.slice(0, middle);
+    const right = arr.slice(middle);
+
+    // 递归，这一块用到分治法中的 集成合并
+    return merge(mergeSort(left), mergeSort(right));
+  }
+
+  function merge(left, right) {
+    const result = [];
+    // 两个子序列进行比较，从小到大放入新的序列result中
+    while(left.length > 0 && right.length > 0) {
+      // 将较小的放入result,并改变left或者right的长度，灵活使用shift方法
+      if (left[0] < right[0]) {
+        result.push(left.shift());
+      } else {
+        result.push(right.shift());
+      }
+    }
+    // 先将小的元素放入result中，直到left或者right为空，剩余的一个数组肯定是大于result的有序序列，所以直接通过concat进行合并返回
+    return result.concat(left, right)
+  }
+
+  function binarySearch(nums, target) {
+    var left = 0;
+    var right = nums.length - 1;
+    // 循环结束的条件就是left > right
+    while(left <= right) {
+      var mid = Math.floor((left + right) / 2);
+      var guess = nums[mid];
+      if (guess == target) {
+        return mid;
+      } else if (guess < target) {
+        left = mid + 1;
+      } else if (guess > target) {
+        right = mid - 1;
+      }
+    }
+    return -1;
+  }
+
+  //n2 => nlogn
+  function twoSumFast(nums) {
+    var n = nums.length;
+    var cnt = 0;
+    // 并归排序
+    nums = mergeSort(nums);
+    console.log(nums)
+    for(var i = 0; i < n; i++) {
+      // 如果二分查找返回的j＞i，我们就有a[i] + a[j] = 0，增加计数器的值；
+      if (binarySearch(nums, -nums[i]) > i) {
+        cnt++;
+      }
+    }
+    return cnt;
+  }
+  console.log(twoSumFast([-3, -2, -1, 0, 1, 2, 3]))
+  console.log(twoSumFast([4, -1, 2, 1, 0]))
+
+  //n3 => n2logn
+  function threeSumFast(nums) {
+    var n = nums.length;
+    var cnt = 0;
+    // 并归排序
+    nums = mergeSort(nums);
+    console.log(nums)
+    for(var i = 0; i < n; i++) {
+      for(var j = i+1; j < n; j++) {
+        if (binarySearch(nums, (-nums[i]-nums[j])) > j) {
+          cnt++;
+        }
+      }
+    }
+    return cnt;
+  }
+  console.log(threeSumFast([1,2,-3]))
+  console.log(threeSumFast([1,2,-4,-3,3,1]))
+</script>
+</html>

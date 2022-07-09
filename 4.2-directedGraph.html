@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  
+</body>
+<script>
+  // 有向图
+  // 有向图api
+  // Digraph
+  // Digraph(int V)                             // 创建一副含有V个顶点但没有边的有向图
+  // Digraph(In in)                             // 从输入流in中读取一副有向图
+  // int V()                                    // 顶点总数
+  // int E()                                    // 边的总数
+  // void addEdge(int v, int w)                 // 向有向图中添加一条边v->w
+  // Interable<Interger> adj(int v)             // 由v指出的边所连接的所有顶点
+  // Digraph reverse()                          // 该图的反向图
+  // String toString()                          // 对象的字符串表示
+
+  // 有向图的表示：我们使用邻接表来表示有向图，其中边v→w表示为顶点v所对应的邻接链表中包含一个w顶点。
+  // 由输入流读取：在边列表的格式中，一对顶点v和w表示边v→w。
+  // 而adj()给出的是由每个顶点指出的边所连接的所有顶点。
+
+  // 在用邻接表表示无向图时，如果v在w的链表中，那么w必然也在v的链表中。但在有向图中这种对称性是不存在的。这个区别在有向图的处理中影响深远。
+  
+  // Digraph数据类型
+  class Node {
+    constructor(val) {
+      this.val = val;
+      this.next = null;
+    }
+  }
+  // 包，这里用链表实现，a放在包里后，再放b，b在a上面 链表的表示就是b->a
+  class Bag {
+    constructor() {
+      this.first = null;
+      this.N = 0; // Bag的长度
+    }
+
+    isEmpty() {
+      return this.first == null;
+    }
+
+    size() {
+      return this.N;
+    }
+
+    // 往包里添加
+    add(key) {
+      // 保存老的链表
+      var oldFirst = this.first;
+      // 创建一个新的结点
+      this.first = new Node(key);
+      // 把老的结点放到新的first后i面
+      this.first.next = oldFirst;
+      this.N++;
+    }
+  }
+  // 邻接表数组表示有向图
+  // [链表1，链表2，链表3]，这里下标对应了点，从0开始，item就是点的邻接表链表
+  // Digraph数据类型与Graph数据类型（请见4.1.2.2框注“Graph数据类型”）基本相同，区别是addEdge()只调用了一次add()，而且它还有一个reverse()方法来返回图的反向图
+  class Digraph {
+    constructor(V) {
+      // 点的数目
+      this.V = V;
+      // 边的数目
+      this.E = 0;
+      // 邻接表采用Bag对象
+      // 创建邻接表，并初始化
+      // [链表1，链表2，链表3]，这里下标对应了点，从0开始，item就是点的邻接表链表
+      this.adj = new Array(this.V).fill(null).map(item => new Bag());
+      // console.log(this.adj)
+    }
+
+    // 返回图的点的个数
+    sizeV() {
+      return this.V;
+    }
+
+    // 返回边的数目
+    sizeE() {
+      return this.E;
+    }
+
+    // 在用邻接表表示无向图时，如果v在w的链表中，那么w必然也在v的链表中。
+    // 但在有向图中这种对称性是不存在的。这个区别在有向图的处理中影响深远。
+    addEdge(v, w) {
+      // 从v指向w，v->w
+      this.adj[v].add(w); // 将w添加到v的链表中
+      // 让边++
+      this.E++;
+    }
+
+    // 返回一个点的邻接表
+    returnAdj(v) {
+      // 参数v代表了点，也就是数组的下标
+      return this.adj[v];
+    }
+
+    // 该图的反向图
+    reverse() {
+      var R = new Digraph(this.V);
+      for(var v = 0; v < this.V; v++) {
+        // 1.遍历原图中的每个顶点
+        // 2.找到原图中每个顶点的相邻点，也就是从该顶点指向的点们
+        // 3.从该顶点指向被指向的点，反转，从被指向的点指向该顶点(v->w，w->v)
+        for (var w = this.returnAdj(v).first; w != null; w = w.next) {
+          R.addEdge(w.val, v);
+        }
+      }
+      return R;
+    }
+  }
+  // 测试案例
+  // [0(2,1), 1(3), 2(null), 3(null), 4(0)]
+  var dG1 = new Digraph(5);
+  dG1.addEdge(0, 1);
+  dG1.addEdge(0, 2);
+  dG1.addEdge(1, 3);
+  dG1.addEdge(4, 0);
+  // dG1.addEdge(0, 4);
+  console.log(dG1)
+  // 反转
+  // [0(4), 1(0), 2(0), 3(1), 4(null)]
+  console.log(dG1.reverse())
+
+  // 有向图的可达性
+  // 深度优先遍历
+  // 它解决了单点连通性的问题，使得用例可以判定其他顶点和给定的起点是否连通
+  // 单点可达性。给定一幅有向图和一个起点s，回答“是否存在一条从s到达给定顶点v的有向路径？”等类似问题。
+  // DirectedDFS
+  // DirectedDFS(Digraph G, int s)          // 在G中找到从s可达的所有顶点
+  // DirectedDFS(Digraph G, Interable<Interger> sources)  // 从G中找到从sources中的所有顶点可达的所有顶点
+  // boolean marked(int v)                  // v是可达的吗
+  // 多点可达性。给定一幅有向图和顶点的集合，回答“是否存在一条从集合中的任意顶点到达给定顶点v的有向路径？”等类似问题。
+  // 有向图的可达性（单点和多点）
+  // 这份深度优先搜索的实现使得用例能够判断从给定的一个或者一组顶点能到达哪些其他顶点。
+  class DirectedDFS {
+    constructor(G, s, sources) {
+      // 保存图
+      this.G = G;
+      // 保存起点
+      this.s = s;
+      // 保存集合
+      this.sources = sources;
+      // 标记
+      // 初始化的时候，创建一个和图的点的个数为长度的数组，然后每个item赋值为false
+      this.marked = new Array(this.G.sizeV()).fill(false);
+      // 如果没有sources，那就是从点s开始
+      if (!sources) {
+        // new DirectedDFS(G, s)
+        this.dfs(this.G, this.s);
+      } else if (!s && sources) {
+        // // new DirectedDFS(G, null, sources)
+        // s为Null。但是sources是有的，就遍历这个集合，来深度优先遍历
+        for(var s of sources) {
+          if (!this.marked[s]) {
+            this.dfs(this.G, s);
+          }
+        }
+      }
+    }
+
+    // dfs
+    dfs(G, v) {
+      // 标记已经去过，为true
+      this.marked[v] = true;
+      // 遍历v周边的点，挨个进行dfs，除非已经标记过去过的不用进行
+      // for(var w of this.G.returnAdj(v)) { // 不是数组 用的链表
+      for (var w = this.G.returnAdj(v).first; w != null; w = w.next) {
+        // 遍历图中v点的相邻的点，如果没有被标记就继续递归dfs没有标记的w
+        if (!this.marked[w.val]) {
+          this.dfs(G, w.val);
+        }
+      }
+    }
+  }
+
+  // 测试案例
+  var ddG = new Digraph(9);
+  ddG.addEdge(0, 1);
+  ddG.addEdge(0, 2);
+  ddG.addEdge(2, 3);
+  ddG.addEdge(2, 4);
+  ddG.addEdge(5, 6);
+  ddG.addEdge(5, 7);
+  ddG.addEdge(8, 5);
+  var dd = new DirectedDFS(ddG, 0);
+  console.log(dd);
+  var dd2 = new DirectedDFS(ddG, null, [0, 6, 8]);
+  console.log(dd2);
+
+  // 深度优先遍历（单点有向路径）
+  class DepthFirstDirectedPaths {
+    constructor(G, s) {
+      // 保存图
+      this.G = G;
+      // 保存起点
+      this.s = s;
+      // 标记
+      // 初始化的时候，创建一个和图的点的个数为长度的数组，然后每个item赋值为false
+      this.marked = new Array(this.G.sizeV()).fill(false);
+      // edgeTo数组
+      // 添加了一个实例变量edgeTo[]整型数组来起到Tremaux搜索中绳子的作用。这个数组可以找到从每个与s连通的顶点回到s的路径。
+      // 它会记住每个顶点到起点的路径，而不是记录当前顶点到起点的路径
+      // 从起点到一个顶点的已知路径上的最后一个顶点
+      this.edgeTo = new Array(this.G.sizeV()).fill(0);
+      // 递归开始
+      this.dfs(this.G, this.s);
+    }
+
+    // 深度优先遍历
+    dfs(G, v) {
+      // 标记已经去过，为true
+      this.marked[v] = true;
+      // 遍历v周边的点，挨个进行dfs，除非已经标记过去过的不用进行
+      for (var w = this.G.returnAdj(v).first; w != null; w = w.next) {
+        // 遍历图中v点的相邻的点，如果没有被标记就继续递归dfs没有标记的w
+        if (!this.marked[w.val]) {
+          // 如果发现未被遍历的点，将edgeTo的下边设置为w，下标对应的元素设置为v
+          // 比如从1(v)到2(w)，edgeTo: [0, 0, 1,....] 下标2是目标路径，下标2对应的item为1，1是起始路径
+          // 0->1->2->3，edgeTo[0,0,1,2]，就是下标3找到元素2，下标2找到元素1，下标1找到元素0.
+          this.edgeTo[w.val] = v;
+          this.dfs(G, w.val);
+        }
+      }
+    }
+
+    // 是否存在从s到v的路径
+    hasPathTo(v) {
+      return this.marked[v];
+    }
+
+    // s到v的路径，如果不存在则返回null
+    pathTo(v) {
+      if (!this.hasPathTo(v)) return null;
+      // 栈，将每个从s到v路过的点压到栈中
+      var pathStack = [];
+      // v是终点，x从v开始，并且x不等于我们的起点s，不断地拿出到v的点直至到起点前结束
+      // 0->1->2->3，edgeTo[0,0,1,2]，就是下标3找到元素2，下标2找到元素1，下标1找到元素0.
+      // 上面中，v是3，找到3，然后压入到path栈中，然后找到下标3对应的它的元素2（3的上一个路径），然后将2压入到栈中，找到下标2对应的元素1，然后将1压入到栈中，找到1对应的元素为0，然后0==s，所以找到了起点，并退出循环
+      for (var x = v; x != this.s; x = this.edgeTo[x]) {
+        pathStack.push(x);
+      }
+      // 将起点压入到栈中
+      pathStack.push(this.s);
+      return pathStack;
+    }
+  }
+  console.log('-----------------------------------------------------------------')
+  var dg1 = new Digraph(5);
+  dg1.addEdge(0, 1);
+  dg1.addEdge(1, 2);
+  dg1.addEdge(1, 3);
+  dg1.addEdge(2, 4);
+  var dfdp = new DepthFirstDirectedPaths(dg1, 0);
+  console.log(dfdp)
+  for (var v = 0; v < dg1.sizeV(); v++) {
+    var path = dfdp.s + 'to' + v + ": ";
+    if (dfdp.hasPathTo(v)) {
+      for (var x of dfdp.pathTo(v).reverse()) { // pathTo是一个栈，所以这里需要反转一下 或者其他方式
+        if (x == dfdp.s) {
+          path += x; // 起点
+        } else {
+          path += ("-" + x); // 过程点
+        }
+      }
+    }
+    console.log(path)
+    // 0to0: 0
+    // 0to1: 0-1
+    // 0to2: 0-1-2
+    // 0to3: 0-1-3
+    // 0to4: 0-1-2-4
+  }
+
+  // 广度优先遍历(单点最短有向路径)
+  class BreadthFirstDirectedPaths {
+    constructor(G, s) {
+      // 保存图和起点
+      this.G = G;
+      this.s = s;
+      // 标记数组，到达该顶点后，将false改为true
+      this.marked = new Array(this.G.sizeV()).fill(false);
+      // edgeTo数组
+      // 也是一棵用父链接表示的根结点为s的树。它表示了s到每个与s连通的顶点的最短路径
+      this.edgeTo = new Array(this.G.sizeV()).fill(0);
+
+      // 开启广度优先遍历
+      this.bfs(this.G, this.s);
+    }
+
+    // 广度优先遍历
+    // 从起点开始，将遍历开始的起点，将起点加入到queue中，标记起点已经被遍历过，然后开启while循环，
+    // 循环的终止条件为queue的长度为0，每次while循环都会从queue里取第一个元素v，然后找到这个元素v
+    // 的相邻元素，开启for循环，如果v的相邻元素有没有被标记的就以这个元素为下标，v为item添加到edgeTo
+    // 数组里，并且标记这个元素marked为True，然后将这个元素添加到队列里,就这样结束一次while循环，
+    // 然后最终queue没元素的时候就结束循环。
+    bfs(G, s) {
+      // 定义一个队列
+      // 为被遍历的点放在这个队列里
+      var queue = [];
+      // 标记起点
+      this.marked[s] = true;
+      // 将他加入队列
+      queue.push(s);
+      // 循环终止条件为队列为空
+      while (queue.length) {
+        // console.log(queue, '!!!!!!!!!!!!!!!!!')
+        // 从队列中删除下一个点
+        var v = queue.shift();
+        // 遍历v周边的点，如果没有被标记过，放入到队列
+        for (var w = this.G.returnAdj(v).first; w != null; w = w.next) {
+          // 对于每个未被标记的相邻顶点
+          if (!this.marked[w.val]) {
+            // 保存最短路径的最后一条边
+            this.edgeTo[w.val] = v;
+            // 标记他，因为最短路径已知
+            this.marked[w.val] = true;
+            // 并将他添加到队列中
+            queue.push(w.val);
+          }
+        }
+      }
+    }
+
+    // 是否存在从s到v的路径
+    hasPathTo(v) {
+      return this.marked[v];
+    }
+
+    // s到v的路径，如果不存在则返回null
+    pathTo(v) {
+      if (!this.hasPathTo(v)) return null;
+      // 栈，将每个从s到v路过的点压到栈中
+      var pathStack = [];
+      for (var x = v; x != this.s; x = this.edgeTo[x]) {
+        pathStack.push(x);
+      }
+      // 将起点压入到栈中
+      pathStack.push(this.s);
+      return pathStack;
+    }
+  }
+  console.log('-----------------------------------------------------------------')
+  var dg2 = new Digraph(6);
+  dg2.addEdge(0, 1);
+  dg2.addEdge(0, 2);
+  dg2.addEdge(1, 3);
+  dg2.addEdge(1, 4);
+  dg2.addEdge(3, 5);
+  var bfdp = new BreadthFirstDirectedPaths(dg2, 0);
+  console.log(bfdp)
+  for (var v = 0; v < dg2.sizeV(); v++) {
+    var path = bfdp.s + 'to' + v + ": ";
+    if (bfdp.hasPathTo(v)) {
+      for (var x of bfdp.pathTo(v).reverse()) { // pathTo是一个栈，所以这里需要反转一下 或者其他方式
+        if (x == bfdp.s) {
+          path += x; // 起点
+        } else {
+          path += ("-" + x); // 过程点
+        }
+      }
+    }
+    console.log(path)
+    // 0to0: 0
+    // 0to1: 0-1
+    // 0to2: 0-2
+    // 0to3: 0-2-3
+  }
+
+  // 拓扑顺序
+  // 拓扑排序。给定一幅有向图，将所有的顶点排序，使得所有的有向边均从排在前面的元素指向排在后面的元素（或者说明无法做到这一点）。
+  // 有向无环图（DAG）就是一幅不含有向环的有向图。
+  // 一幅有向图是有向无环图吗？基于深度优先搜索来解决这个问题并不困难，因为由系统维护的递归调用的栈表示的正是“当前”正在遍历的有向路径（就好像用Tremaux方法探索迷宫时的那条绳子一样）。
+  // 一旦我们找到了一条有向边v→w且w已经存在于栈中，就找到了一个环，因为栈表示的是一条由w到v的有向路径，而v→w正好补全了这个环。同时，如果没有找到这样的边，那就意味着这幅有向图是无环的
+  // 有向环的api
+  // DirectedCycle
+  // DirectedCycle(Digraph G)     // 寻找有向环的构造函数
+  // boolean hasCycle()           // G是否含有有向环
+  // Interable<Integer> cycle()   // 有向环中的所有顶点（如果存在的话）
+
+  // 寻找有向环
+  // 该类为标准的递归dfs()方法添加了一个布尔类型的数组onStack[]来保存递归调用期间栈上的所有顶点。当它找到一条边v→w且w在栈中时，它就找到了一个有向环。环上的所有顶点可以通过edgeTo[]中的链接得到。
+  // 在执行dfs(G, v)时，查找的是一条由起点到v的有向路径。要保存这条路径，Direc-tedCycle维护了一个由顶点索引的数组onStack[]，以标记递归调用的栈上的所有顶点（在调用dfs(G, v)时将onStack[v]设为true，在调用结束时将其设为false）
+  // 有向环检测
+  class DirectedCycle {
+    constructor(G) {
+      // 保存图
+      this.G = G;
+      // 标记数组，到达该顶点后，将false改为true
+      this.marked = new Array(this.G.sizeV()).fill(false);
+      // edgeTo数组
+      // 也是一棵用父链接表示的根结点为s的树。它表示了s到每个与s连通的顶点的最短路径
+      this.edgeTo = new Array(this.G.sizeV()).fill(0);
+      // 有向环中的所有顶点（如果存在）
+      this.cycle = null; 
+      // 递归调用的栈上的所有顶点
+      this.onStack = new Array(this.G.sizeV()).fill(false); // 栈先进后出
+      // 循环开始，每个顶点都会遍历到，然后如果没有被marked的顶点进行dfs
+      for(var v = 0; v < this.G.sizeV(); v++) {
+        if (!this.marked[v]) {
+          this.dfs(this.G, v);
+        }
+      }
+    }
+
+    dfs(G, v) {
+      // 递归就是这个顶点入栈，将v在onStack中的item改为true
+      this.onStack[v] = true;
+      // 标记该点
+      this.marked[v] = true;
+      for (var w = this.G.returnAdj(v).first; w != null; w = w.next) {
+        if (this.hasCycle()) {
+          // 如果有环停止遍历
+          return;
+        } else if (!this.marked[w.val]) {
+          // 将本次递归的v也就是出发结点，作为下一次要递归的w在下标w对应的item v
+          this.edgeTo[w.val] = v;
+          // 如果v相邻的点没有被标记，则继续进行深度优先遍历
+          this.dfs(G, w.val);
+        } else if (this.onStack[w.val]) {
+          // 如果w已经在调用栈中了
+          // 给cycle定义成一个栈，item为数字类型
+          this.cycle = [];
+          for(var x = v; x != w.val; x = this.edgeTo[x]) {
+            // console.log('xxx', x) // 3 4
+            this.cycle.push(x);
+          }
+          this.cycle.push(w.val);
+          this.cycle.push(v);
+          // 为了方便看，这里reverse数组
+          this.cycle.reverse();
+        }
+      }
+      // 递归完v后，出函数调用栈的时候，将onStack[v]改为false
+      this.onStack[v] = false;
+    }
+
+    // 是否有环
+    hasCycle() {
+      return this.cycle != null;
+    }
+
+    returnCycle() {
+      return this.cycle;
+    }
+  }
+  console.log('-----------------------------------------------------------------')
+  var dg3 = new Digraph(6);
+  dg3.addEdge(0, 5);
+  dg3.addEdge(5, 4);
+  dg3.addEdge(4, 3);
+  dg3.addEdge(3, 5);
+  var dc = new DirectedCycle(dg3, 0);
+  console.log(dc) // cycle [3, 4, 5, 3] => [3, 5, 4, 3]
+
+  // 顶点的深度优先次序与拓扑排序
+  // 优先级限制下的调度问题等价于计算有向无环图中的所有顶点的拓扑顺序，
+  //      public class   Topological
+  //                     Topological(Digraph G)    拓扑排序的构造函数
+  //           boolean   isDAG()                   G是有向无环图吗
+  // Iterable<Integer>   order()                   拓扑有序的所有顶点
+  // 命题 当且仅当一幅有向图是无环图时它才能进行拓扑排序
+  // 如果一幅有向图含有一个环，它就不可能是拓扑有序的。与此相反，我们将要学习的算法能够计算任意有向无环图的拓扑顺序。
+
+  // “有向图中基于深度优先搜索的顶点排序”的DepthFirstOrder类。它的基本思想是深度优先搜索正好只会访问每个顶点一次。如果将dfs()的参数顶点保存在一个数据结构中，
+  // 遍历这个数据结构实际上就能访问图中的所有顶点，遍历的顺序取决于这个数据结构的性质以及是在递归调用之前还是之后进行保存
+  // 3种排列顺序
+  // 前序：在递归调用之前将顶点加入队列。 前序就是dfs()的调用顺序
+  // 后序：在递归调用之后将顶点加入队列。 后续就是顶点遍历完成的顺序
+  // 逆后序：在递归调用之后将顶点压入栈。 跟后续返回的点完全相反
+  // Topological类中的order()方法就调用了reversePost()方法。0->1->2; => stack[2, 1, 0]
+
+  // 深度优先的顶点排序
+  // 有向图中基于深度优先搜索的顶点排序
+  class DepthFirstOrder {
+    constructor(G) {
+      // 保存图
+      this.G = G;
+      // 标记数组，到达该顶点后，将false改为true
+      this.marked = new Array(this.G.sizeV()).fill(false);
+      // pre：所有顶点的前序排列
+      this.pre = []; // queue
+      // post: 所有顶点的后续排列
+      this.post = []; // queue
+      // reversePost：所有顶点的逆后续排列
+      this.reversePost = []; // stack
+      // 循环开始，每个顶点都会遍历到，然后如果没有被marked的顶点进行dfs
+      for(var v = 0; v < this.G.sizeV(); v++) {
+        if (!this.marked[v]) {
+          this.dfs(this.G, v);
+        }
+      }
+    }
+
+    dfs(G, v) {
+      // 在递归调用前将顶点加入前序队列数组
+      this.pre.push(v);
+      this.marked[v] = true;
+      for (var w = this.G.returnAdj(v).first; w != null; w = w.next) {
+        if (!this.marked[w.val]) {
+          this.dfs(this.G, w.val);
+        }
+      }
+      // 递归调用之后将顶点加入到后续队列数组种
+      this.post.push(v);
+      // 递归调用之后将顶点加入到逆后续stack中，这里为了区分队列和数组，我们往数组的前面加元素，出栈的时候也是从前面拿元素
+      this.reversePost.unshift(v); // unshift往前面加，shift删除第一个，同理push，pop跟他们相反
+    }
+  }
+  console.log('-----------------------------------------------------------------')
+  var dg4 = new Digraph(6);
+  dg4.addEdge(0, 1);
+  dg4.addEdge(0, 2);
+  dg4.addEdge(1, 3);
+  dg4.addEdge(1, 4);
+  dg4.addEdge(3, 5);
+  var dfo = new DepthFirstOrder(dg4, 0);
+  // pre [0, 2, 1, 4, 3, 5] post [2, 4, 5, 3, 1, 0] reversePost [0, 1, 3, 5, 4, 2]
+  console.log(dfo)
+
+  var test = new Digraph(4);
+  test.addEdge(0, 1)
+  test.addEdge(0, 2)
+  test.addEdge(2, 3)
+  var test2 = new DepthFirstOrder(test, 0)
+  console.log(test2, 'test22222222222222222')
+
+  // Topological拓扑排序
+  class Topological {
+    constructor(G) {
+      this.G = G;
+      // 查找环
+      this.cycleFinder = new DirectedCycle(this.G);
+      // 顶点的拓扑排序
+      this.order = null;
+      // 有向图中基于深度优先搜索的顶点排序
+      this.dfs = null;
+      // 如果没环
+      if (!this.cycleFinder.hasCycle()) {
+        // 有向图中基于深度优先搜索的顶点排序
+        this.dfs = new DepthFirstOrder(this.G);
+        this.order = this.dfs.reversePost; // 记得用shift来取值
+      }
+    }
+
+    // 返回顶点的拓扑排序
+    Order() {
+      return this.order;
+    }
+
+    // G是有向无环图吗
+    isDAG() {
+      return this.order != null;
+    }
+  }
+  console.log('-----------------------------------------------------------------')
+  var tg = new Topological(dg4);
+  console.log(tg)
+  for(let v = 0; v < tg.Order().length; v++) {
+    console.log(tg.Order()[v], '---------------11111111111111111')
+  }
+  // 一幅有向无环图的拓扑顺序即为所有顶点的逆后序排列。
+  // 使用深度优先搜索对有向无环图进行拓扑排序所需的时间和V+E成正比。
+  // 由代码可知，第一遍深度优先搜索保证了不存在有向环，第二遍深度优先搜索产生了顶点的逆后序排列。两次搜索都访问了所有的顶点和所有的边，因此它所需的时间和V+E成正比。
+
+
+  // 有向图中的强连通性
+  // 如果两个顶点v和w是互相可达的，则称它们为强连通的。也就是说，既存在一条从v到w的有向路径，也存在一条从w到v的有向路径。
+  // 如果一幅有向图中的任意两个顶点都是强连通的，则称这幅有向图也是强连通的。
+
+  // 强连通分量
+  // 和无向图中的连通性一样，有向图中的强连通性也是一种顶点之间等价关系，因为它有着以下性质。
+  // ❏自反性：任意顶点v和自己都是强连通的。
+  // ❏对称性：如果v和w是强连通的，那么w和v也是强连通的。
+  // ❏传递性：如果v和w是强连通的且w和x也是强连通的，那么v和x也是强连通的。
+  // 作为一种等价关系，强连通性将所有顶点分为了一些等价类，每个等价类都是由相互均为强连通的顶点的最大子集组成的。我们将这些子集称为强连通分量
+  // 一个含有V个顶点的有向图含有1～V个强连通分量——一个强连通图只含有一个强连通分量，而一个有向无环图中则含有V个强连通分量
+
+  // 在理解有向图的结构时，强连通性是一种非常重要的抽象，它突出了相互关联的几组顶点（强连通分量）
+
+  // 强连通分量的API
+  // public class SCC
+  //              SCC(Digraph G)                    // 预处理构造函数
+  //      boolean stronglyConnected(int v, int w)   // v和w是强连通的吗
+  //          int count()                           // 图中的强连通分量的总数
+  //          int id(int v)                         // v所在的强连通分量的标识符(在0至count()-1之间)
+  // Kosaraju算法
+  // Kosaraju算法的正确性证明
+  // ❏在给定的一幅有向图G中，使用DepthFirstOrder来计算它的反向图GR的逆后序排列。
+  // ❏在G中进行标准的深度优先搜索，但是要按照刚才计算得到的顺序而非标准的顺序来访问所有未被标记的顶点。
+  // ❏在构造函数中，所有在同一个递归dfs()调用中被访问到的顶点都在同一个强连通分量中，将它们按照和CC相同的方式识别出来。
+
+  // 算法4.6计算强连通分量的Kosaraju算法
+  // 为了找到所有强连通分量，它会在反向图中进行深度优先搜索来将顶点排序（搜索顺序的逆后序），在给定有向图中用这个顺序再进行一次深度优先搜索。
+
+  // 命题H使用深度优先搜索查找给定有向图G的反向图GR，根据由此得到的所有顶点的逆后序再次用深度优先搜索处理有向图G（Kosaraju算法），其构造函数中的每一次递归调用所标记的顶点都在同一个强连通分量之中。
+  // 证明：
+  // 1.首先要用反证法证明“每个和s强连通的顶点v都会在构造函数调用的dfs(G, s)中被访问到”。假设有一个和s强连通的顶点v不会在构造函数调用的dfs(G, s)中被访问到。因为存在从s到v的路径，所以v肯定在之前就已经被标记过了。
+  // 但是，因为也存在从v到s的路径，在dfs(G, v)调用中s肯定会被标记，因此构造函数应该是不会调用dfs(G, s)的。矛盾。
+  // 2.其次，要证明“构造函数调用的dfs(G, s)所到达的任意顶点v都必然是和s强连通的”。设v为dfs(G, s)到达的某个顶点。那么，G中必然存在一条从s到v的路径，因此只需要证明G中还存在一条从v到s的路径即可。
+  // 这也等价于GR中存在一条从s到v的路径，因此只需要证明在GR中存在一条从s到v的路径即可。
+
+  // 强连通性
+  class KosarajuSCC {
+    constructor(G) {
+      // 保存图
+      this.G = G;
+      // 已访问过的顶点
+      this.marked = new Array(this.G.sizeV()).fill(false);
+      // 强连通分量的标识符
+      this.id = new Array(this.G.sizeV()).fill(0);
+      // 强连通分量的个数
+      this.count = 0;
+      // 有向图中基于深度优先搜索的顶点排序(给定图的反转图)
+      // G的逆后序，就是从起点到顶点的排序，然后，反转图的逆后序就是将图反转，然后找到逆后序数组，意思就是反着来遍历这个图的顶点
+      this.order = new DepthFirstOrder(this.G.reverse());
+      // 遍历G反向图的逆后序，来判断它的连通性
+      // 遍历的顺序为G反向图的逆后续排列，用的图还是原始图
+      for(var s of this.order.reversePost) {
+        if (!this.marked[s]) {
+          this.dfs(this.G, s);
+          // 这里同理4.1CC算法的count
+          this.count++;
+        }
+      }
+    }
+
+    // dfs
+    dfs(G, v) {
+      // 标记已访问
+      this.marked[v] = true;
+      // 标记v所在的强连通分量
+      this.id[v] = this.count;
+      for (var w = G.returnAdj(v).first; w != null; w = w.next) {
+        // 遍历图中v点的相邻的点，如果没有被标记就继续递归dfs没有标记的w
+        if (!this.marked[w.val]) {
+          // 如果v相邻的点没有被标记，则继续进行深度优先遍历
+          this.dfs(G, w.val);
+        }
+      }
+    }
+
+    // stronglyConnected(int v, int w)   // v和w是强连通的吗
+    stronglyConnected(v, w) {
+      return this.id[v] == this.id[w];
+    }
+
+    // v所在的强连通分量的标识符（0~count()-1）
+    Id(v) {
+      return this.id[v];
+    }
+
+    // 强连通分量数
+    Count() {
+      // 从0开始，第一组连通分量的标识符都为0，然后第二组连通分量的标识符都为1，这样count为2
+      return this.count;
+    }
+  }
+  console.log('-------------------------------------------------------')
+  var dgx = new Digraph(4);
+  dgx.addEdge(0, 1);
+  dgx.addEdge(1, 2);
+  dgx.addEdge(2, 3);
+  dgx.addEdge(3, 1);
+  var kjscc = new KosarajuSCC(dgx);
+  console.log(kjscc)
+
+  // 顶点对的可达性：给定一幅有向图，回答“是否存在一条从一个给定的顶点v到另一个给定的顶点w的路径？
+  // 有向图顶点对的可达性
+  // 有向图G的传递闭包是由相同的一组顶点组成的另一幅有向图，在传递闭包中存在一条从v指向w的边当且仅当在G中w是从v可达的。
+  // public class TransitiveClosure
+  //              TransitiveClosure(Digraph G)      // 预处理的构造函数
+  //      boolean reachable(int v, int w)           // w是从v可达的吗
+
+  // 顶点的可达性
+  class TransitiveClosure {
+    constructor(G) {
+      this.G = G;
+      // all是一个数组，长度为G的顶点个数
+      // 数组的内容是以每个顶点构成的深度优先遍历的图
+      this.all = new Array(this.G.sizeV()).fill(null).map((item, index) => new DirectedDFS(this.G, index));
+    }
+
+    // w是从v可达的吗
+    // 找v构造的图，查w是否marked
+    reachable(v, w) {
+      return this.all[v].marked[w];
+    }
+  }
+  console.log('---------------------------------------------------------------------')
+  var tc = new TransitiveClosure(dgx);
+  console.log(tc)
+  console.log(tc.reachable(0, 1));
+  console.log(tc.reachable(1, 0));
+</script>
+</html>

@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+
+</body>
+<script>
+  // 问 Prim和Kruskal算法能够处理有向图吗？答 不行，不可能。那是一个更加困难的有向图处理问题，叫做最小树形图问题。
+  // 4.3最小生成树
+  // 加权图是一种为每条边关联一个权值或是成本的图模型。
+  // 最小生成树。给定一幅加权无向图，找到它的一棵最小生成树。
+  // 定义。图的生成树是它的一棵含有其所有顶点的无环连通子图。一幅加权图的最小生成树（MST）是它的一棵权值（树中所有边的权值之和）最小的生成树。
+  // ps:生成树是图的一颗含有其所有顶点的无环连通子图，加权图的最小生成树是图的一颗权值最小的生成树，既然是生成树就要包含所有顶点的无环连通子图。
+  // 在本节中，我们会学习计算最小生成树的两种经典算法：Prim（基本的）算法和Kruskal（克鲁斯卡尔）算法。
+
+  // 一些约定
+  // a.非连通的无向图中不存在最小生成树
+  // b.权重不一定和距离成正比
+  // c.权重可能是0或者负数
+  // d.如果存在相等的权重，那最小生成树可能不唯一
+  // ❏只考虑连通图
+  // ❏边的权重不一定表示距离。
+  // ❏边的权重可能是0或者负数。
+  // ❏所有边的权重都各不相同。如果不同边的权重可以相同，最小生成树就不一定唯一了
+  // 总之，在学习最小生成树相关算法的过程中我们假设任务的目标是在一幅加权（但权值各不相同的）连通无向图中找到它的最小生成树。
+
+  // 原理：1.添加一条边会创建一个环，删除一条边会将树一分为二。
+  // 这两条性质是证明最小生成树的另一条基本性质的基础，而由这条基本性质就能够得到本节中的最小生成树算法。
+
+  // 切分定理
+  // https://blog.csdn.net/towads/article/details/71159202
+  // 把图中的结点分为两部分，称为一个切分(Cut)
+  // 如果一个边的两个端点，属于切分不同的两边，这个边称为横切边(Crossing Edge)
+  // 切分定理：给定任意切分，横切边中权值最小的边必然属于最小生成树
+  // 证明：假如一条横切边他不是最短的，那么必然存在一条最短的边，连接两部分，否则这两部分不连通，无法构成生成树。
+
+
+  // 书中介绍
+  // 我们称之为切分定理的这条性质将会把加权图中的所有顶点分为两个集合、检查横跨两个集合的所有边并识别哪条边应属于图的最小生成树。
+  // 定义。图的一种切分是将图的所有顶点分为两个非空且不重叠的两个集合。横切边是一条连接两个属于不同集合的顶点的边。
+  // 命题J（切分定理）。在一幅加权图中，给定任意的切分，它的横切边中的权重最小者必然属于图的最小生成树。
+  // 证明。今e为权重最小的横切边，T为图的最小生成树。我们采用反证法：假设T不包含e。那么如果将e加入T，得到的图必然含有一条经过e的环，且这个环至少含有另一条横切边——设为f, 
+  // f的权重必然大于e（因为e的权重是最小的且图中所有边的权重均不同）。那么我们删掉f而保留e就可以得到一棵权重更小的生成树。这和我们的假设T矛盾。
+
+  // 在假设所有的边的权重均不相同的前提下，每幅连通图都只有一棵唯一的最小生成树，切分定理也表明了对于每一种切分，权重最小的横切边必然属于最小生成树。
+  // 注意，权重最小的横切边并不一定是所有横切边中唯一属于图的最小生成树的边。实际上，许多切分都会产生若干条属于最小生成树的横切边，
+
+  // 贪心算法
+  // 切分定理是解决最小生成树问题的所有算法的基础。
+  // 使用切分定理找到最小生成树的一条边，不断重复直到找到最小生成树的所有边
+  // 命题K（最小生成树的贪心算法）。下面这种方法会将含有V个顶点的任意加权连通图中属于最小生成树的边标记为黑色：初始状态下所有边均为灰色，找到一种切分，它产生的横切边均不为黑色。
+  // 将它权重最小的横切边标记为黑色。反复，直到标记了V-1条黑色边为止。
+  // 证明：根据切分定理，所有被标记为黑色的边均属于最小生成树。如果黑色边的数量小于V-1，必然还存在不会产生黑色横切边的切分（因为我们假设图是连通的）。只要找到了V-1条黑色的边，这些边所组成的就是一棵最小生成树。
+
+  // 加权无向图的数据类型
+  // 加权无向图如何表示？也许最简单的方法就是扩展4.1节中对无向图的表示方法：在邻接矩阵的表示中，可以用边的权重代替布尔值来作为矩阵的元素；在邻接表的表示中，可以在链表的结点中增加一个权重域。
+  // 加权边的API
+  // public class Edge implements Comparable<Edge>
+  //              Edge(int v, int w, double weight) 用于初始化的构造函数
+  //       double weight()                          边的权重
+  //          int either()                          边两端的顶点之一
+  //          int other(int v)                      另一个顶点
+  //          int compareTo(Edge that)              将这条边与that比较
+  //       String toString()                        对象的字符串表示
+
+  // Edge的实现请见框注“带权重的边的数据类型”，它是EdgeWeightedGraph的API的基础。加权无向图的实现很自然地使用了Edge对象
+  // 加权无向图的API
+  // public class EdgeWeightedGraph
+  //              EdgeWeightedGraph(int v) 创建一副含有V个顶点的空图
+  //              EdgeWeightedGraph(In in) 从输入流中读取图
+  //          int V()                      图的顶点数
+  //          int E()                      图的边数
+  //         void addEdge(Edge e)          向图中添加一条边e
+  //Interable<Edge> adj(int v)               和v相关联的所有边
+  //Interable<Edge> edges()                  图的所有边
+  //        String toString()               对象的字符串表示
+  // 无向图
+  class Node {
+    constructor(val) {
+      this.val = val;
+      this.next = null;
+    }
+  }
+  // 包，这里用链表实现，a放在包里后，再放b，b在a上面 链表的表示就是b->a
+  class Bag {
+    constructor() {
+      this.first = null;
+      this.N = 0; // Bag的长度
+    }
+
+    isEmpty() {
+      return this.first == null;
+    }
+
+    size() {
+      return this.N;
+    }
+
+    // 往包里添加
+    add(key) {
+      // 保存老的链表
+      var oldFirst = this.first;
+      // 创建一个新的结点
+      this.first = new Node(key);
+      // 把老的结点放到新的first后i面
+      this.first.next = oldFirst;
+      this.N++;
+    }
+  }
+
+  // 带权重的边的数据类型
+  // 该数据结构提供了either()和other()两个方法。
+  // 当两个顶点都是未知的时候，用例可以使用惯用代码v=e.either(), w=e.other(v)；来访问一个Edge对象e的两个顶点。
+  class Edge {
+    constructor(v, w, weight) {
+      this.v = v; // 顶点之一
+      this.w = w; // 另一个顶点
+      this.weight = weight; // 边的权重
+    }
+
+    // 边的权重
+    Weight() {
+      return this.weight;
+    }
+
+    // 边两端的顶点之一
+    either() {
+      return this.v;
+    }
+
+    // 另一个顶点
+    // 在已知一个顶点v时，用例可以使用other(v)来得到边的另一个顶点。
+    other(vertex) {
+      if (vertex === this.v) {
+        return this.w;
+      } else if (vertex === this.w) {
+        return this.v;
+      } else {
+        console.error('Inconsistent edge')
+      }
+    }
+
+    // 将这条边与that比较
+    // compareTo(Edge that) 
+    compareTo(that) {
+      if (this.Weight() < that.Weight()) {
+        return -1;
+      } else if (this.Weight() > that.Weight()) {
+        return +1;
+      } else {
+        return 0;
+      }
+    }
+  }
+
+  // 加权无向图
+  // adj[链表，链表] index代表顶点，然后链表为BAG对象，但是每个节点为Edge（两个顶点，权重）
+  class EdgeWeightedGraph {
+    constructor(v) {
+      this.v = v; // 顶点总数
+      this.e = 0; // 边的总数
+      // 邻接表，bag对象的结点为edge
+      this.adj = new Array(this.v).fill(null).map(item => new Bag());
+    }
+
+    // 图的顶点数
+    V() {
+      return this.v;
+    }
+
+    // 图的边数
+    E() {
+      return this.e;
+    }
+
+    // 向图中添加一条边e
+    // void addEdge(Edge e) 
+    addEdge(e) {
+      // 先找到边的两个点
+      var v = e.either();
+      var w = e.other(v);
+      // 对两个点都加这条边
+      this.adj[v].add(e);
+      this.adj[w].add(e);
+      // 边的数量++
+      this.e++;
+    }
+
+    // adj(int v) 和v相关联的所有边
+    Adj(v) {
+      return this.adj[v];
+    }
+
+    // edges() 图的所有边
+    edges() {
+      var b = new Bag();
+      for (var v = 0; v < this.v; v++) {
+        // 遍历每个点，然后遍历每个点对应的链表，再遍历链表中的每条边
+        for (var e = this.Adj(v).first; e != null; e = e.next) {
+          if (e.val.other(v) > v) {
+            // 这里是怕重复添加，v从0开始，添加的顶点都比0大，这样再添加到对应的顶点时，0小于这个顶点，就没必要重复添加了
+            b.add(e.val);
+          }
+        }
+      }
+      return b;
+    }
+  }
+  var tinyEWG = new EdgeWeightedGraph(8);
+  tinyEWG.addEdge(new Edge(4, 5, 0.35));
+  tinyEWG.addEdge(new Edge(4, 7, 0.37));
+  tinyEWG.addEdge(new Edge(5, 7, 0.28));
+  tinyEWG.addEdge(new Edge(0, 7, 0.16));
+  tinyEWG.addEdge(new Edge(1, 5, 0.32));
+  tinyEWG.addEdge(new Edge(0, 4, 0.38));
+  tinyEWG.addEdge(new Edge(2, 3, 0.17));
+  tinyEWG.addEdge(new Edge(1, 7, 0.19));
+  tinyEWG.addEdge(new Edge(0, 2, 0.26));
+  tinyEWG.addEdge(new Edge(1, 2, 0.36));
+  tinyEWG.addEdge(new Edge(1, 3, 0.29));
+  tinyEWG.addEdge(new Edge(2, 7, 0.34));
+  tinyEWG.addEdge(new Edge(6, 2, 0.40));
+  tinyEWG.addEdge(new Edge(3, 6, 0.52));
+  tinyEWG.addEdge(new Edge(6, 0, 0.58));
+  tinyEWG.addEdge(new Edge(6, 4, 0.93));
+  console.log(tinyEWG)
+  console.log(tinyEWG.edges());
+
+  // 最小生成树的API
+  // public class MST
+  //              MST(EdgeWeightedGraph G)   构造函数
+  //Interable<Edge> edges()                    最小生成树的所有边
+  //       double weigth()                   最小生成树的权重   
+
+  // Prim算法
+  // 我们要学习的第一种计算最小生成树的方法叫做Prim算法，它的每一步都会为一棵生长中的树添加一条边。
+  // 一开始这棵树只有一个顶点，然后会向它添加V-1条边，每次总是将下一条连接树中的顶点与不在树中的顶点且权重最小的边（黑色表示）加入树中（即由树中的顶点所定义的切分中的一条横切边）
+  // 数据结构
+  // 具体来说，我们会用以下方法表示树中的顶点、边和横切边。
+  // ❏顶点。使用一个由顶点索引的布尔数组marked[]，如果顶点v在树中，那么marked[v]的值为true。
+  // ❏边。选择以下两种数据结构之一：一条队列mst来保存最小生成树中的边，或者一个由顶点索引的Edge对象的数组edgeTo[]，其中edgeTo[v]为将v连接到树中的Edge对象。
+  // ❏横切边：使用一条优先队列MinPQ＜Edge＞来根据权重比较所有边（请见4.3.2节框注“带权重的边的数据类型”）。
+
+  // 最小生成树的Prim算法的延时实现”中的LazyPrimMST类
+  // 算法流程实现：
+  // 实现会在构造函数中计算图的最小生成树，这样用例方法就可以用查询类方法获得最小生成树的各种属性
+  // 我们使用了一个私有方法visit()来为树添加一个顶点、将它标记为“已访问”并将与它关联的所有未失效的边加入优先队列，以保证队列含有所有连接树顶点和非树顶点的边（也可能含有一些已经失效的边）
+  // 代码的内循环是算法的具体实现：我们从优先队列中取出一条边并将它添加到树中（如果它还没有失效的话），再把这条边的另一个顶点也添加到树中，然后用新顶点作为参数调用visit()方法来更新横切边的集合
+  // weight()方法可以遍历树的所有边并得到它们的权重之和（延时实现）或是用一个运行时的变量统计总权重（即时实现）
+  // 运行时间
+  // 命题M。Prim算法的延时实现计算一幅含有V个顶点和E条边的连通加权无向图的最小生成树所需的空间与E成正比，所需的时间与ElogE成正比（最坏情况）。
+
+  // 最小优先队列
+  class MinPQ {
+    constructor(maxN) {
+      // 基于堆的完全二叉树的数组，maxN为二叉树中结点的个数，所以我们创建数组为maxN+1，第0位元素不用，N个结点对应的下标为1，2，3...N，
+      this.pq = new Array(maxN + 1).fill(null); // 基于堆的完全二叉树
+      this.N = 0; // 存储于pq[1..N]，pq[0]没有使用
+    }
+
+    // 交换位置
+    exch(i, j) {
+      var temp = this.pq[i];
+      this.pq[i] = this.pq[j];
+      this.pq[j] = temp;
+    }
+
+    // 上浮
+    swim(k) {
+      // 轮询条件为：k > 1就是k还没有达到顶部元素以及a[k]小于父节点a[k/2]
+      while (k > 1 && this.pq[Math.floor(k / 2)].weight > this.pq[k].weight) {
+        // 调换位置
+        this.exch(Math.floor(k / 2), k);
+        // 更新k的值
+        k = Math.floor(k / 2);
+      }
+    }
+
+    // 下沉
+    sink(k) {
+      while (2 * k <= this.N) {
+        // 找到子节点
+        var j = 2 * k;
+        // 左子节点不是最后一个元素，并且左子节点小于右子节点
+        // 如果左子节点大于右子节点，那就让a[k]与右子节点去比较（找到两个子节点中左右最小的结点）
+        if (j < this.N && (this.pq[j].weight > this.pq[j + 1].weight)) {
+          j++;
+        }
+        // 判断k和j，如果a[k] < a[j]那就终止循环，因为a[k]比他的子节点小了
+        if (this.pq[k].weight < this.pq[j].weight) break;
+        // 交换元素
+        this.exch(k, j);
+        // 对k重新赋值
+        k = j;
+      }
+    }
+
+    isEmpty() {
+      return this.N === 0;
+    }
+
+    size() {
+      return this.N;
+    }
+
+    // 插入
+    insert(v) {
+      // 从第一个插入
+      // this.N++，从最后一个往上游
+      this.pq[++this.N] = v;
+      this.swim(this.N);
+    }
+
+    // 删除最小值
+    delMin() {
+      var min = this.pq[1]; // 从根节点得到最小元素
+      // 调换位置：1和this.N，最后N--
+      // 调换位置：
+      // 先调换位置(1和N)再将this.N - 1;
+      this.exch(1, this.N--);
+      // 将数组最后一个置为null，意思就是删除
+      this.pq[this.N + 1] = null; // 防止对象游离
+      // 恢复堆的有序性
+      this.sink(1);
+      return min;
+    }
+  }
+
+  // 最小生成树的Prim算法的延时实现
+  // Prim算法的这种实现使用了一条优先队列来保存所有的横切边、一个由顶点索引的数组来标记树的顶点以及一条队列来保存最小生成树的边。
+  // 这种延时实现会在优先队列中保留失效的边。
+  class LazyPrimMST {
+    // G EdgeWeightedGraph
+    constructor(G) {
+      // 保存无向连通图
+      this.G = G;
+      // 最小生成树的顶点
+      this.marked = new Array(this.G.V()).fill(false);
+      // 最小生成树的边（队列Queue） 
+      this.mst = [];
+      // 横切边（包括失效的边）（优先队列MinPQ）
+      // 这里优先队列的最大长度我们设置为图的所有边的个数+1，那么数组最后一位就是this.G.E()，第一位为null
+      this.pq = new MinPQ(this.G.E());
+      // 假设G是连通的
+      this.visit(this.G, 0);
+      // 优先队列不是空的，终止条件优先队列为空
+      // visit中，如果有边的两个顶点都已经被标记了，则不会加入到优先队列里
+      // 逻辑顺序
+      // 当优先队列不为空，则取出最小的横切边，找到边的两个顶点，如果两个顶点中有一个没有被标记，则用visit()来为树添加一个顶点、将它标记为“已访问”并将与它关联的所有未失效的边加入优先队列
+      // 然后每次取出最小横切边，如果两个顶点均被标记了，则跳过继续找下一个最小的横切边
+      while (!this.pq.isEmpty()) {
+        // 找到优先队列中权重最小的横切边
+        // 从pq中得到权重最小的边
+        var e = this.pq.delMin();
+        // console.log(e, '1111111111111111111111')
+        // 找到边的两个顶点
+        var v = e.either(),
+          w = e.other(v);
+        // 跳过失效的边
+        if (this.marked[v] && this.marked[w]) {
+          continue;
+        }
+        // 将边添加到树中
+        // 进入mst队列
+        this.mst.push(e);
+        // 将顶点(v或w)添加到树中
+        if (!this.marked[v]) {
+          this.visit(this.G, v);
+        }
+        if (!this.marked[w]) {
+          this.visit(this.G, w);
+        }
+      }
+    }
+
+    // 我们使用了一个私有方法visit()来为树添加一个顶点、将它标记为“已访问”并将与它关联的所有未失效的边加入优先队列，以保证队列含有所有连接树顶点和非树顶点的边（也可能含有一些已经失效的边）
+    visit(G, v) {
+      // 标记顶点v并将所有连接v和未标记顶点的边加入pq
+      this.marked[v] = true;
+      for (var e = this.G.Adj(v).first; e != null; e = e.next) {
+        // console.log(e.val)
+        // 将所有连接v和未标记顶点的边加入pq
+        if (!this.marked[e.val.other(v)]) {
+          this.pq.insert(e.val);
+        }
+      }
+      // console.log(this.pq, this.marked)
+    }
+
+    // 最小生成树的所有边
+    edges() {
+      return this.mst;
+    }
+
+    // 最小生成树的权重   
+    // weight()方法可以遍历树的所有边并得到它们的权重之和（延时实现）或是用一个运行时的变量统计总权重（即时实现）
+    weight() {
+      var weight = 0;
+      for (var edge of this.edges()) {
+        // 从队列找到所有的边，然后挨个加他们的权重
+        weight += edge.Weight();
+      }
+      return weight;
+    }
+  }
+  var lpmst = new LazyPrimMST(tinyEWG);
+  console.log(lpmst)
+
+  // 索引优先队列
+  // 索引优先队列，用一个索引数组保存了元素在数组中的位置。在插入队列中时，可看作将一个整数和一个对象相关联，使得我们可以引用队列中的元素
+  // https://blog.csdn.net/GuangHEultimate/article/details/109492560
+  // https://www.jianshu.com/p/e13406ae5b1b
+  // https://blog.csdn.net/weixin_43696529/article/details/104675343
+  // 要注意的是，pq数组存放的关联整数是连续的，而qp和keys数组中存放的元素不是连续的，他们的位置是一一对应的。如果整数i还没有被关联，总是令qp[i] = -1，因此对应地keys[i] = null
+  // 个人理解，keys数组是存储对象或者元素的，对象或元素在keys对应的index（下标）也就是最小堆(pq)的排序，放在pq中，pq数组的item保存的是keys对象对应的index，
+  // 我们可以通过keys[i]在keys中找到元素，然后i就是pq中的item，而qp保存的就是pq的逆序，因此qp保存的是被关联整数j在数组pq中的索引
+  // -----------------------------------------------------------------------------------------------------------------------------
+  // 我们使用Key[] keys保存对象，int[] pq保存对象在数组中的位置，比如pq[1] = 5，那么keys[pq[1]] = keys[5]表示整数5和对象关联，而这个整数5存放于pq索引为1的位置；
+  // 用一个int[] qp保存pq的逆序，即如果pq[i] = j（表示数组pq索引为i的位置存放了一个被关联的整数j），则有qp[j] = i，因此qp保存的是被关联整数j在数组pq中的索引。
+  // 易知pq[qp[j]] = j; qp[pq[i]] = i。
+  // 要注意的是，pq数组存放的关联整数是连续的，而qp和keys数组中存放的元素不是连续的，他们的位置是一一对应的。如果整数i还没有被关联，总是令qp[i] = -1，因此对应地keys[i] = null
+  // 自始至终keys数组中的元素位置不会发生变化，这就是说所有上浮下沉操作后，keys中元素的相对位置都不会变化，变化的只是与之关联的索引pq还有qp而已。
+  // （反正都能通过pq数组中存放的关联整数快速找到keys数组中的元素，所以只改变pq和qp中元素的相对位置足矣）
+  // 下面排序
+  // 这是一个小顶堆，pq是优先队列，但是它优先级的顺序并不是按照其关联的整数来排列的，而是按照关联整数对应的对象的大小来排列，即keys[pq[i]]
+  // -----------------------------------------------------------------------------------------------------------------------------
+  // 下标  0  1  2  3  4  5  6  7  8  9  10  11
+  // pq      10 6  3  1  4  8
+  // qp      4     3  5     2     6      1
+  // keys    k     f  n     c     h      b
+  // 等价的完全二叉树
+  //     10(b)
+  //     /    \
+  //   6(c)   3(f)
+  //   / \    /
+  // 1(k)4(n) 8(h)
+  // pq是连续的，在上图中，pq[4] = 1; qp[1] = 4; keys[1] = k; keys[pq[4]] = key;
+
+  // 索引最小优先队列
+  // https://blog.csdn.net/GuangHEultimate/article/details/109492560
+  class IndexMinPQ {
+    constructor(maxN) {
+      // 基于堆的完全二叉树的数组，maxN为二叉树中结点的个数，所以我们创建数组为maxN+1，第0位元素不用，N个结点对应的下标为1，2，3...N，
+      // 使用Key[] keys保存对象
+      this.keys = new Array(maxN + 1).fill(null);;
+      // 使用int[] pq数组作为索引队列，保存对象在数组中的位置
+      this.pq = new Array(maxN + 1).fill(0);
+      // 用一个int[] qp保存pq的逆序
+      // 即如果pq[i] = j（表示数组pq索引为i的位置存放了一个被关联的整数j），则有qp[j] = i，
+      // 因此qp保存的是被关联整数j在数组pq中的索引
+      // 易知pq[qp[j]] = j; qp[pq[i]] = i
+      // 个人理解：初始化的时候，因为整数i还没有被关联，所以qp[i] = -1
+      this.qp = new Array(maxN + 1).fill(-1);
+      this.N = 0; // 存储于pq[1..N]，pq[0]没有使用
+    }
+
+    isEmpty() {
+      return this.N === 0;
+    }
+
+    size() {
+      return this.N;
+    }
+
+    // 是否包含index
+    contains(index) {
+      return this.qp[index] != -1;
+    }
+
+    // 最小元素关联索引
+    minIndex() {
+      return this.pq[1];
+    }
+
+    // less 判断堆中索引i处的元素是否小于索引j处的元素
+    // i处的元素小于j处的元素则返回true，否则返回false
+    less(i, j) {
+      return this.keys[this.pq[i]] < this.keys[this.pq[j]];
+    }
+
+    // 交换位置
+    // 交换堆中索引i处元素和索引j处元素
+    exch(i, j) {
+      // pq数组item变化
+      var temp = this.pq[i];
+      this.pq[i] = this.pq[j];
+      this.pq[j] = temp;
+      // qp数组也要变化关联整数在pq中的索引
+      this.qp[this.pq[i]] = i; 
+      this.qp[this.pq[j]] = j; 
+    }
+
+    // 上浮
+    //使用上浮算法，使索引k处的元素能在堆中处于一个正确的位置
+    swim(index) {
+      while (index > 1 && this.less(index, Math.floor(index / 2))) {
+        // 调换位置
+        this.exch(index, Math.floor(index / 2));
+        // 更新k的值
+        index = Math.floor(index / 2);
+      }
+    }
+
+    // 下沉
+    // 使用下沉算法，使索引k处的元素能在堆中处于一个正确的位置
+    sink(k) {
+      while (2 * k <= this.N) {
+        // 找到子节点
+        var j = 2 * k;
+        // !!!!找到子节点中的较小值
+        // 左子节点不是最后一个元素，并且左子节点小于右子节点
+        // 如果左子节点大于右子节点，那就让a[k]与右子节点去比较（找到两个子节点中左右最小的结点）
+        if (j < this.N && this.less(j + 1, j)) {
+          j++;
+        }
+        // 判断k和j，如果a[k] < a[j]那就终止循环，因为a[k]比他的子节点小了
+        if (this.less(k, j)) break;
+        // 交换元素
+        this.exch(k, j);
+        // 对k重新赋值
+        k = j;
+      }
+    }
+
+    // 删除最小的
+    // 删除队列中最小的元素，并返回该元素关联的索引
+    delMin() {
+      // 获取最小元素的关联索引 可就是keys数组的下标
+      var min = this.pq[1];
+      // 将第一个与最后一个交换位置
+      // 然后N--
+      this.exch(1, this.N--);
+      // 删除qp数组对应的元素
+      this.qp[this.pq[this.N + 1]] = -1;
+      // 删除keys中对应的内容
+      // this.keys[min] = null;
+      this.keys[this.pq[this.N + 1]] = null;
+      //删除pq中最大索引处的内容
+      this.pq[this.N+1] = 0;
+      // 恢复堆的有序性
+      this.sink(1);
+      return min;
+    }
+
+    // 插入
+    // 往队列中插入一个元素，并关联索引
+    // i为keys数组的下标,t为i对应的item
+    insert(i, t) {
+      // 先检查i是否已经被关联，如果被关联，则不能被插入
+      if (this.contains(i)) {
+        console.error(i+"已经被关联了，不允许被插入");
+        return;
+      }
+      //元素个数增加
+      this.N++;
+      // 把数据存储到keys对应i的位置
+      this.keys[i] = t;
+      // 把i存储到pq中
+      this.pq[this.N] = i;
+      // 通过qp来记录pq中的i
+      this.qp[i] = this.N;
+      // 通过上浮进行堆的排序
+      this.swim(this.N);
+    }
+
+    // change 把与索引i关联的元素修改为t
+    change(i, t) {
+      //修改keys数组中i位置的元素为t
+      this.keys[i] = t;
+      // 找到i在pq中出现的位置
+      // 通过qp保存的pq的下标来找到
+      var k = this.qp[i];
+      // 堆调整
+      // 先上浮后下沉
+      this.swim(k);
+      this.sink(k);
+    }
+
+    //删除索引i关联的元素
+    delete(i) {
+      if (!this.contains(i)) {
+        console.error("没"+i+"你删个茄子");
+      }
+      // 找到i在pq中的索引
+      var k = this.qp[i];
+      // 交换pq中索引k处的值和索引n处的值
+      this.exch(k, this.N);
+      // 删除qp中的内容
+      this.qp[this.pq[this.N]] = -1;
+      // 删除items中的内容
+      this.keys[i] = null; // Same thing as keys[pq[size]] = null
+      // 删除pq的内容
+      this.pq[this.N] = 0;
+      this.N--;
+      // 堆调整
+      // 先上浮后下沉
+      // 这里一定要先上浮下沉后再将元素置空，因为swim方法没有N的限制，在没有交换元素的情况下，即删除的就是pq中最后一个元素，如果先置空, 会在greater方法中引发空指针
+      // 而sink方法有N的限制，先置空后置空都没有影响，2k <= N会限制它进入循环，避免了空指针
+      this.swim(k);
+      this.sink(k);
+    }
+  }
+  console.log('-------------------------------------------------')
+  var iminpq = new IndexMinPQ(10);
+  iminpq.insert(3, 'f');
+  iminpq.insert(1, 'k');
+  iminpq.insert(10, 'b');
+  iminpq.insert(6, 'c');
+  iminpq.insert(4, 'n');
+  iminpq.insert(8, 'h');
+  console.log(iminpq)
+  // iminpq.change(6, 'a');
+  // console.log(iminpq)
+  // iminpq.delMin();
+  // iminpq.delMin();
+  // iminpq.delMin();
+  // iminpq.delMin();
+  // iminpq.delMin();
+  // iminpq.delMin();
+  // iminpq.insert(10, 'b');
+  iminpq.delete(6);
+  console.log(iminpq);
+
+  console.log('-------------------------------------------------')
+
+  // Prim算法的即时实现
+  // 要改进LazyPrimMST，可以尝试从优先队列中删除失效的边，这样优先队列就只含有树顶点和非树顶点之间的横切边，但其实还可以删除更多的边
+  // 算法4.7最小生成树的Prim算法（即时版本）
+  // 当我们将顶点v添加到树中时，对于每个非树顶点w产生的变化只可能使得w到最小生成树的距离更近了
+  // 简而言之，我们不需要在优先队列中保存所有从w到树顶点的边——而只需要保存其中权重最小的那条，
+  // 在将v添加到树中后检查是否需要更新这条权重最小的边（因为v-w的权重可能更小）。
+  // 我们只需遍历v的邻接链表就可以完成这个任务。
+  // 换句话说，我们只会在优先队列中保存每个非树顶点w的一条边：将它与树中的顶点连接起来的权重最小的那条边。将w和树的顶点连接起来的其他权重较大的边迟早都会失效，
+  // 所以没必要在优先队列中保存它们。
+  // 算法分析：Prim算法的即时版本可以找到一幅连通的加权无向图的最小生成树，所需时间和ElogV成正比，空间和V成正比（请见命题N）
+  class PrimMST {
+    constructor(G) {
+      // 保存图
+      this.G = G;
+      // 距离树最近的边（构造的最小生成树）
+      // 存储的是边
+      // 如果顶点v不在树中但至少含有一条边和树相连，那么edgeTo[v]是将v和树连接的最短边，distTo[v]为这条边的权重。
+      this.edgeTo = new Array(this.G.V()).fill(null); // edgeTo数组就是存放v(不在最小生成树得顶点)和树连接得最短边
+      // distTo[w] = edgeTo[w].weigth() 
+      // 存储的是权重，初始值为无穷大
+      this.distTo = new Array(this.G.V()).fill(Infinity); // distTo[v]就是这条边得权重
+      // 如果v在树中则为true
+      this.marked = new Array(this.G.V()).fill(false);
+      // 有效的横切边
+      this.pq = new IndexMinPQ(this.G.V());
+      // 默认distTo[0]
+      this.distTo[0] = 0.0;
+      // 用顶点0和权重0初始化pq
+      this.pq.insert(0, 0.0);
+      // 优先队列不是空的，终止条件优先队列为空
+      while (!this.pq.isEmpty()) {
+        // 将最近的顶点添加到树中
+        // delMin返回的就是IndexMinPQ中keys数组中的下标，也就是我们插入this.pq.insert(0, 0.0)，
+        // 这里insert第一个参数就是我们无向加权图的顶点，第二个参数就是横切边得权重
+        this.visit(this.G, this.pq.delMin());
+      }
+    }
+
+    visit(G, v) {
+      // 将顶点v添加到树中，更新数据
+      this.marked[v] = true;
+      for (var e = this.G.Adj(v).first; e != null; e = e.next) {
+        // 找到v对应的边的顶点w
+        var w = e.val.other(v);
+        if (this.marked[w]) {
+          continue; // v-w失效
+        }
+        // 如果v到e的权重小于目前存储的到e的权重，则更新edgeTo[e]为e，distTo[e]为e.Weight()
+        if (e.val.Weight() < this.distTo[w]) {
+          // 连接w和树的最佳边Edge变为e
+          this.edgeTo[w] = e.val;
+          this.distTo[w] = e.val.Weight();
+          if (this.pq.contains(w)) {
+            // 如果优先队列里包含w，则改变到w的权重
+            this.pq.change(w, this.distTo[w]);
+          } else {
+            // 如果优先队列里没有w，则直接插入w，以及到w的权重
+            this.pq.insert(w, this.distTo[w]);
+          }
+        }
+      }
+      // console.log(this.pq)
+      // debugger;
+    }
+  }
+  console.log('--------------------------------------------------------------------------------------')
+  var pmst = new PrimMST(tinyEWG);
+  console.log(pmst)
+  console.log('--------------------------------------------------------------------------------------')
+  // 4.3.6 Kruskal算法
+  // 我们要仔细学习的第二种最小生成树算法的主要思想是按照边的权重顺序（从小到大）处理它们，将边加入最小生成树中（图中的黑色边），加入的边不会与已经加入的边构成环，直到树中含有V-1条边为止
+  // 这些黑色的边逐渐由一片森林合并为一棵树，也就是图的最小生成树。这种计算方法被称为Kruska算法。
+  // Prim算法是一条边一条边地来构造最小生成树，每一步都为一棵树添加一条边。Kruskal算法构造最小生成树的时候也是一条边一条边地构造，但不同的是它寻找的边会连接一片森林中的两棵树。
+
+
+  // ------------------------------------------------------------------------------------
+  class UF {
+    constructor(N) {
+      // id[]用父链接的方式表示了一片森林
+      this.id = new Array(N).fill(0).map((item, index) => item = index);
+      // 分量数量
+      this.count = N;
+    }
+
+    // 连通分量的数量
+    countFunc() {
+      return this.count;
+    }
+
+    // 如果p和q存在同一个分量中则返回true
+    connected(p, q) {
+      return this.find(p) === this.find(q);
+    }
+
+    // 下面的例子：find(5)即为id[id[id[5]]] => 1  find(9)即为id[id[9]] => 8
+    find(p) {
+      // return this.id[p];
+      // 找出分量的名称
+      while(p != this.id[p]) {
+        p = this.id[p];
+      }
+      return p;
+    }
+
+    // 在p和q之间添加一条连接
+    union(p, q) {
+      // 将p和q的根节点统一
+      let pRoot = this.find(p);
+      let qRoot = this.find(q);
+
+      if (pRoot == qRoot) return;
+
+      this.id[pRoot] = qRoot;
+
+      this.count--;
+    }
+  }
+  // ------------------------------------------------------------------------------------
+
+  // kruskal算法实现
+  // Kruskal算法的实现并不困难：我们将会使用一条优先队列（请见2.4节）来将边按照权重排序，用一个union-find数据结构（请见1.5节）来识别会形成环的边，以及一条队列（请见1.3节）来保存最小生成树的所有边
+  // 注意，使用队列来保存最小生成树的所有边意味着用例在遍历时将会按照权重的升序得到这些边
+  // Kruskal算法的计算一幅含有V个顶点和E条边的连通加权无向图的最小生成树所需的空间和E成正比，所需的时间和ElogE成正比
+
+  // 最小生成树得Kruskal算法
+  // 克鲁斯卡尔
+  // 流程：
+  // 该算法需要一个队列来存放最小生成树的边，需要一个优先队列来将所有的边按权重排序，需要一个uf数据结构来识别连通性
+  // 1.将所有的边加入到优先队列里，进行排序，
+  // 2.构造一个uf数据结构
+  // 3.开启while循环，循环结束条件，当优先队列为空并且mst队列的长度等于G.V()-1  
+  // 4.每个循环体的内容就是，取出优先队列的最小边，然后找到这个边的两个顶点，先看这两个边在uf结构中是否已经连通，
+  // 如果联通了，则继续寻找下一个优先队列的最小边，如果没有连通，则将v、w两个顶点连通，然后将这条边添加到mst队列
+  class KruskalMST {
+    constructor(G) {
+      // 保存加权无向图
+      this.G = G;
+      // 保存最小生成树的所有边
+      // （队列Queue） 
+      this.mst = []; // 他是一个队列
+      // 1.使用一条优先队列（请见2.4节）来将边按照权重排序
+      // min pq的参数为边的条数
+      this.pq = new MinPQ(this.G.E());
+      // 将所有的边，加入到最小优先队列里，进行排序
+      for (var e = this.G.edges().first; e != null; e = e.next) {
+        // console.log(e)
+        this.pq.insert(e.val);
+      }
+      // 2.用一个union-find数据结构（请见1.5节）来识别会形成环的边，
+      // uf的参数为顶点的个数
+      this.uf = new UF(this.G.V());
+
+      // 当优先队列不为空，并且存放边的队列还有没有存放完所有最小生成树的边
+      while(!this.pq.isEmpty() && (this.mst.length < this.G.V() - 1)) {
+        // 从pq中得到权重最小的边和它的顶点
+        var e = this.pq.delMin();
+        // 得到权重最小的边和他的顶点
+        var v = e.either(), w = e.other(v);
+        // 忽略失效的边
+        if (this.uf.connected(v, w)) {
+          continue;
+        }
+        // 合并分量
+        this.uf.union(v, w);
+        // 将边添加到最小生成树
+        this.mst.push(e);
+      }
+    }
+
+    // edges
+    edges() {
+      return this.mst;
+    }
+
+    // 该最小生成树的权重
+    weight() {
+      var weight = 0;
+      for (var edge of this.edges()) {
+        // 从队列找到所有的边，然后挨个加他们的权重
+        weight += edge.Weight();
+      }
+      return weight;
+    }
+  }
+  console.log('------------------------------------------------------------------------------');
+  var kmst = new KruskalMST(tinyEWG);
+  console.log(kmst, kmst.weight())
+</script>
+
+</html>

@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+
+</body>
+<script>
+  // 5.2 单词查找树
+  // 以字符串为键的符号表的API
+  //      public class StringST<value>
+  //                   StringST()                 创建一个符号表
+  //              void put(String key, Value val) 向表中插入键值对（如果值味null则删除键key）
+  //             Value get(String key)            键key所对应的值（如果键不存在则返回null）
+  //              void delete(String key)         删除键key（和他的值）
+  //           boolean contains(String key)       表中是否保存着key的值
+  //           boolean isEmpty()                  符号表是否为空
+  //            String longestPrefixOf(String s)  s的前缀中最长的键
+  // Interable<String> keysWithPrefix(String s)   所有以s为前缀的键
+  // Interable<String> keysThatMatch(String s)    所有和s匹配的键（其中"."能够匹配任意字符）
+  //               int size()                     键值对的数量
+  // Interable<String> keys()                     符号表中的所有键
+
+  // 下面我们用she sells sea shells by the shore这几个键作为示例描述以下3个新方法。
+  // ❏ longestPrefixOf()接受一个字符串参数并返回符号表中该字符串的前缀中最长的键。对于以上所有键，longestPrefixOf("shell")的结果是she,longestPrefixOf("shel-lsort")的结果是shells。
+  // ❏ keysWithPrefix()接受一个字符串参数并返回符号表中所有以该字符串作为前缀的键。对于以上所有键，keysWithPrefix("she")的结果是she和shells,keysWithPrefix ("se")的结果是sells和sea。
+  // ❏ keysThatMatch()接受一个字符串参数并返回符号表中所有和该字符串匹配的键，其中参数字符串中的点（“.”）可以匹配任何字符。对于以上所有键，keysThatMatch(".he")的结果是she和the, keysThatMatch("s..")的结果是she和sea。
+
+  // 5.2.1 单词查找树
+  // 本节中，我们要学习一种叫做单词查找树的数据结构.它由字符串键中的所有字符构造而成，允许使用被查找键中的字符进行查找
+  // .1 基本性质
+  // 和各种查找树一样，单词查找树也是由链接的结点所组成的数据结构，这些链接可能为空，也可能指向其他结点。每个结点都只可能有一个指向它的结点，称为它的父结点（只有一个结点除外，即根结点，没有任何结点指向根结点）
+  // 每个结点都含有R条链接，其中R为字母表的大小。
+  // 尽管链接指向的是结点，但是也可以看作链接指向的是另一棵单词查找树，它的根结点就是被指向的结点
+  // 具体来说，我们将每个键所关联的值保存在该键的最后一个字母所对应的结点中。我们应该记住非常重要的一点：值为空的结点在符号表中没有对应的键，它们的存在是为了简化单词查找树中的查找操作
+
+  // .2 单词查找树中的查找操作
+  // 在单词查找树中查找给定字符串键所对应的值是一个很简单的过程，它是以被查找的键中的字符为导向的
+  // 从根结点开始，首先经过的是键的首字母所对应的链接；在下一个结点中沿着第二个字符所对应的链接继续前进；在第二个结点中沿着第三个字符所对应的链接向前，如此这般直到到达键的最后一个字母所指向的结点或是遇到了一条空链接。
+  // 这时可能会出现以下3种情况
+  // ❏键的尾字符所对应的结点中的值非空（如图5.2.2中查找shells和she的示例）。这是一次命中的查找——键所对应的值就是键的尾字符所对应的结点中保存的值。（返回键的尾字符串对应的结点中所保存的值）
+  // ❏键的尾字符所对应的结点中的值为空（如图5.2.2中查找shell的示例）。这是一次未命中的查找——符号表中不存在被查找的键。
+  // ❏查找结束于一条空链接（如图5.2.2中查找shore的示例）。这也是一次未命中的查找。
+
+  // .3 单词查找树中的插入操作
+  // 和二叉查找树一样，在插入之前要进行一次查找：在单词查找树中意味着沿着被查找的键的所有字符到达树中表示尾字符的结点或者一个空链接。此时可能会出现以下两种情况。
+  // ❏在到达键的尾字符之前就遇到了一个空链接。在这种情况下，单词查找树中不存在与键的尾字符对应的结点，因此需要为键中还未被检查的每个字符创建一个对应的结点并将键的值保存到最后一个字符的结点中。
+  // ❏在遇到空链接之前就到达了键的尾字符。在这种情况下，和关联数组一样，将该结点的值设为键所对应的值（无论该值是否为空）。
+
+  // .4 结点的表示
+  // 在本节开头提到过，我们为单词查找树所绘出的图像和在程序中构造的数据结构并不完全一致，因为我们没有画出空链接。将空链接考虑进来将会突出单词查找树的以下重要性质：❏每个结点都含有R个链接，对应着每个可能出现的字符；❏字符和键均隐式地保存在数据结构中。
+  // ❏每个结点都含有R个链接，对应着每个可能出现的字符；❏字符和键均隐式地保存在数据结构中。
+  // 在单词查找树中，键是由从根结点到含有非空值的结点的路径所隐式表示的
+  // 数据结构既没有保存字符串sea也没有保存字符s、e和a，事实上，数据结构不会存储任何字符串或字符，它保存了链接数组和值
+  // 因为参数R的作用的重要性，所以将基于含有R个字符的字母表的单词查找树称为R向单词查找树。
+  // 它的私有Node类用实例变量val保存键相关联的值并用数组next[]保存所有指向其他Node对象的引用
+
+  // .5 大小
+  // size()方法的实现有以下3种显而易见的选择。
+  // ❏即时实现：用一个实例变量N保存键的数量。
+  // ❏更加即时的实现：用结点的实例变量保存子单词查找树中键的数量，在递归的put()和delete()方法调用之后更新它们。
+  // ❏延时递归实现：如上页框注“单词查找树的延时递归方法size()”所示。它会遍历单词查找树中的所有结点并记录非空值结点的总数。
+  // size() {
+  //   return this.$$size(this.root);
+  // }
+  // // Node x
+  // $$size(x) {
+  //   if (x == null) return 0;
+  //   var cnt = 0;
+  //   if (x.val != null) cnt++;
+  //   for(var c = 0; c < this.R; c++) {
+  //     cnt += this.$$size(next[c]);
+  //   }
+  //   return cnt;
+  // }
+
+  // .6 查找所有键
+  // 因为字符和键是被隐式地表示在单词查找树中，所以使用例能够遍历符号表的所有键就变得有些困难
+
+  // .7 通配符匹配
+  // 我们可以用一个类似的过程实现keysThatMatch()，但需要为collect()方法添加一个参数来指定匹配的模式
+  // 如果模式中含有通配符，就需要用递归调用处理所有的链接，否则就只需要处理模式中指定字符的链接即可
+
+  // .8 最长前缀
+  // 为了找到给定字符串的最长键前缀，就需要使用一个类似于get()的递归方法。它会记录查找路径上所找到的最长键的长度（将它作为递归方法的参数在遇到值非空的结点时更新它）
+  // 查找会在被查找的字符串结束或是遇到空链接时终止
+
+  // .9删除操作
+  // 从一棵单词查找树中删去一个键值对的第一步是，找到键所对应的结点并将它的值设为空（null）如果该结点含有一个非空的链接指向某个子结点，那么就不需要再进行其他操作了
+  // 如果它的所有链接均为空，那就需要从数据结构中删去这个结点。如果删去它使得它的父结点的所有链接也均为空，就需要继续删除它的父结点，依此类推
+
+  // 算法5.4基于单词查找树的符号表
+  // 结点
+  class Node {
+    constructor() {
+      // 结点保存的值  比如she 0，那么e这个结点的val就是0
+      this.val = null;
+      this.next = new Array(256).fill(null);
+      // this.size = 0;
+    }
+  }
+
+  class TrieST {
+    constructor() {
+      // 基数
+      this.R = 256;
+      // 根节点
+      // 单词查找树的根节点
+      this.root = null;
+    }
+
+    // 删除
+    delete(key) {
+      this.root = this.$$delete(this.root, key, 0);
+    }
+
+    // 从一棵单词查找树中删去一个键值对的第一步是，找到键所对应的结点并将它的值设为空（null）。如果该结点含有一个非空的链接指向某个子结点，那么就不需要再进行其他操作了
+    // 如果它的所有链接均为空，那就需要从数据结构中删去这个结点。如果删去它使得它的父结点的所有链接也均为空，就需要继续删除它的父结点，依此类推
+    $$delete(x, key, d) {
+      if (x == null) return null;
+      if (d == key.length) {
+        // 如果找到该节点了，将该节点得val置为空
+        x.val = null;
+      } else {
+        // 如果没找到继续递归
+        var c = key.charCodeAt(d);
+        x.next[c] = this.$$delete(x.next[c], key, d + 1);
+      }
+      // 像she 0，shells 3，这种删除shells，逐渐返回到e得时候，x.val!=null就结束了
+      if (x.val != null) return x;
+      for (var c = 0; c < this.R; c++) {
+        // 如果被删除的链接得next数组有子节点那就返回这个被删除的连接，不需要进行其他操作了
+        // 如果他的所有链接均为空，那就需要从数据结构删除这个结点，见最后一行return null，如果删去他使他的父节点所有链接也均为空，就需要继续删除他的父节点，以此类推
+        if (x.next[c] != null) return x;
+      }
+      return null;
+    }
+
+    // 查找键key所对应的值（如果键不存在则返回null）
+    get(key) {
+      if (key == null) {
+        console.error("Key cannot be null");
+        return;
+      }
+      if (key.length == 0) {
+        console.error("Key must have a positive length");
+        return;
+      }
+      // 通过$$get方法找到要找的node x
+      var x = this.$$get(this.root, key, 0);
+      if (x == null) return null;
+      return x.val;
+    }
+
+    // Node x
+    $$get(x, key, d) {
+      // 返回以x为根节点的子单词查找树中与key相关联的值
+      if (x == null) return null;
+      if (d == key.length) return x;
+      // 找到第d个字符
+      var c = key.charCodeAt(d);
+      return this.$$get(x.next[c], key, d + 1);
+    }
+
+    // 向表中插入键值对（如果值为null则删除键key）
+    put(key, val) {
+      if (key == null) {
+        console.error("Key cannot be null");
+        return;
+      }
+      if (val == null) {
+        // 删除key
+        // this.delete(key);
+        console.error("val不能为Null,删除key");
+        return;
+      }
+      this.root = this.$$put(this.root, key, val, 0);
+    }
+
+    // 比如创建一个TrieST对象，刚开始root为null
+    // 第一次put一个(by, 4)，刚进去root为Null,我们为root创建一个node对象，我们找到by中b(d = 0)的unicode值，
+    // 这时候root.next[98]为null，说明没有创建过b,为root.next[98]创建一个node对象，我们找到by中的y(d = 1)的unicode值，
+    // 这时候root.next[98]对应的Node对象的121为null，我们为y创建一个对象，由于d+1 = 2，所以这时候为b对应的对象的val赋值
+    $$put(x, key, val, d) {
+      // 如果key存在于以x为根节点的子单词查找树中则更新与它相关的值
+      if (x == null) {
+        x = new Node();
+      }
+      if (d == key.length) {
+        x.val = val;
+        return x;
+      }
+      // 找到第d个字符所对应的子单词查找树
+      var c = key.charCodeAt(d);
+      x.next[c] = this.$$put(x.next[c], key, val, d + 1);
+      return x;
+    }
+
+    // 要实现keys()方法，可以以空字符串作为参数调用keysWithPrefix()方法
+    keys() {
+      return this.keysWithPrefix("");
+    }
+
+    // 要实现keysWithPrefix()方法，可以先调用get()找出给定前缀所对应的单词查找树（如果不存在则返回null），再使用collect()方法完成任务
+    // 所有以pre为前缀的键
+    keysWithPrefix(pre) {
+      // 定义一个队列用于存放字符串
+      var q = [];
+      this.collect(this.$$get(this.root, pre, 0), pre, q);
+      return q;
+    }
+
+    // String pat
+    // 所有和s匹配的键（其中"."能够匹配任意字符）
+    keysThatMatch(pat) {
+      // 声明一个队列用来存放匹配到的值
+      var q = [];
+      this.collect2(this.root, "", pat, q);
+      return q;
+    }
+
+    // 查找s的前缀中最长的键
+    // 需要使用一个类似于get()的递归方法。它会记录查找路径上所找到的最长键的长度（将它作为递归方法的参数在遇到值非空的结点时更新它）
+    // 查找会在被查找的字符串结束或是遇到空链接时终止
+
+    // 核心逻辑
+    // 1.我们一开始调用this.search(this.root, 'byy', 0, 0)，然后进入search方法中，x为root，s为byy，d为0， length为0，我们找到s.charCodeAt(0)然后进入下一步递归
+    // 2.x为b对应得node，s为byy，d为1，length为0，找到c为121，进入下一次递归
+    // 3. x为121对应得Node，s为byy，d为2，Length为0，这时候x.val不为null，length = 2，然后我们继续找c为121，进入递归
+    // 4.x为121对应的node为null，s为byy，d为3，length为2，因为x为null，退出
+    // 5.找到了length为2，所以我们从s截取0，2这时候得到结果为by
+    longestPrefixOf(s) {
+      var length = this.search(this.root, s, 0, 0);
+      return s.substring(0, length);
+    }
+
+    // Node x, String s, int d, int length
+    search(x, s, d, length) {
+      if (x == null) return length;
+      if (x.val != null) length = d;
+      if (d == s.length) return length;
+
+      var c = s.charCodeAt(d);
+      return this.search(x.next[c], s, d + 1, length);
+    }
+
+    // Node x, String pre, Queue<String> q
+    // collect：收集
+    // 我们用一个类似于size()的私有递归方法collect()来完成这个任务，它维护了一个字符串用来保存从根结点出发的路径上的一系列字符
+    // 每当我们在collect()调用中访问一个结点时，方法的第一个参数就是该结点，第二个参数则是和该结点相关联的字符串（从根结点到该结点的路径上的所有字符）
+    // 在访问一个结点时，如果它的值非空，我们就将和它相关联的字符串加入队列之中，然后（递归地）访问它的链接数组所指向的所有可能的字符结点
+    // 在每次调用之前，都将链接对应的字符附加到当前键的末尾作为调用的参数键
+    // ps: 比如我们找b开头的，先找到b对应的Node,然后遍历b的Node对应的next数组，对每个R执行this.collect方法，这时候如果有不为空的，则将'b'+String.fromCharCode(c)，
+    // 这里为by 然后继续调用y的Node对应的next数组，直至为空
+    collect(x, pre, q) {
+      if (x == null) return;
+      if (x.val != null) {
+        // 进队列  q.enqueue(pre)
+        q.push(pre);
+      }
+      for (var c = 0; c < this.R; c++) {
+        this.collect(x.next[c], pre + String.fromCharCode(c), q);
+      }
+    }
+
+    // 所有和s匹配的键（其中"."能够匹配任意字符）所用的collect2方法，核心逻辑就是
+    // 1.在collect方法加了一个pat参数，当我们的keysThatMatch调用collect2方法的时候this.collect2(this.root, "", pat, q); pre字符串为空
+    // 2.以by为例子，Pre第一次为空，d为0，然后在pat中找第0个元素，找到他的unicode值，然后在R中遍历，找到98，然后继续递归调用collect2(root.next[98], ""+"b", "b.", [])
+    // 3.这时候Pre为"b"，pat为"b."，d = 1 < pat.length，所以找next = 46，然后继续遍历因为是.所以只能从0到256找到合适的 这时候找到了y，其余的都为null，这时候继续递归this.collect2({val: 4, next:[]}, "by", "b.", [])
+    // 4.这时候d为2，然后x.val = 4，并且d = pat.lenght，所以q.push(pre)
+    collect2(x, pre, pat, q) {
+      var d = pre.length;
+      if (x == null) return;
+      // 这里加个限定就是d == pat.length因为我们搜索的时候b.，也就找含b的两个数的，不像collect函数，以什么什么为开头不必加这条限制
+      if (d == pat.length && x.val != null) {
+        // 进队列  q.enqueue(pre)
+        q.push(pre);
+      }
+      if (d == pat.length) return;
+      var next = pat.charCodeAt(d);
+      for (var c = 0; c < this.R; c++) {
+        // next == "." || next == c ，这里.的unicode值为46
+        if (next == 46 || next == c) {
+          this.collect2(x.next[c], pre + String.fromCharCode(c), pat, q);
+        }
+      }
+    }
+  }
+  console.log('-----------------------------------------------------------')
+  console.log('TrieST')
+  var tst = new TrieST();
+  // tst.put('by', 4);
+  // tst.put('sea', 2);
+  // tst.put('sells', 1);
+  tst.put('she', 0);
+  tst.put('shells', 3);
+  // tst.put('the', 5);
+  // tst.put('a', 6);
+  // console.log(tst.get('by'))  // 4
+  // console.log(tst.get('byy')) // null
+  // console.log(tst.get('b')) // null
+  // console.log(tst.keysWithPrefix("b")) // ["by"]
+  // console.log(tst.keysWithPrefix("c")) // []
+  // console.log(tst.keysWithPrefix("sh")) // ['she', 'shells']
+  // console.log(tst.keysWithPrefix("")) //  ['a', 'by', 'sea', 'sells', 'she', 'shells', 'the']
+  // console.log(tst.keys()) //  ['a', 'by', 'sea', 'sells', 'she', 'shells', 'the']
+  // console.log(tst.keysThatMatch("b.")) // ['by']
+  // console.log(tst.keysThatMatch("s..")) // ['sea', 'she']
+  // console.log(tst.keysThatMatch(".y")) // ['by']
+  // console.log(tst.longestPrefixOf("byy")) // by
+  // console.log(tst.longestPrefixOf("b")) // ""
+  // console.log(tst.longestPrefixOf("she")) // "she"
+  // console.log(tst.delete('by'))
+  // console.log(tst.get('by'))
+  console.log(tst.delete('shells'))
+  console.log(tst.get('shells'))
+  console.log(tst)
+  console.log('-----------------------------------------------------------')
+
+
+  // 单词查找树的性质
+  // 命题F。单词查找树的链表结构（形状）和键的插入或删除顺序无关：对于任意给定的一组键，其单词查找树都是唯一的。
+  // 命题G。在单词查找树中查找一个键或是插入一个键时，访问数组的次数最多为键的长度加1。
+  // 证明。由代码可知，put()和get()方法的递归实现都带有一个参数d。它的初始值为0，每次调用时都会加1，当长度等于键的长度时递归调用停止。
+  // 命题I。一棵单词查找树中的链接总数在RN到RNw之间，其中w为键的平均长
+  // 证明。在单词查找树中，每个键都有一个对应的结点保存着它关联的值，同时每个结点也含有R条链接，因此链接总数至少有RN条。如果所有的键的首字母均不相同，那么每个键中的每个字母都有一个对应的结点，因此链接总数应该等于R乘以所有键中的字符总数，即RNw。
+
+
+  // .3 三向单词查找树
+  // 在三向单词查找树中，每个结点都含有一个字符、三条链接和一个值
+  // 这三条链接分别对应着当前字母小于、等于和大于结点字母的所有键
+  // 在算法5.4的R向单词查找树中，树的结点含有R条链接，每个非空链接的索引隐式地表示了它所对应的字符。在等价的三向单词查找树中，字符是显式地保存在结点中的——只有在沿着中间链接前进时才会根据字符找到表中的键
+
+  // 算法5.5基于三向单词查找树的符号表
+  class TstNode {
+    constructor() {
+      // 字符
+      this.c = null;
+      // 左中右子三向单词查找树
+      this.left = null;
+      this.mid = null;
+      this.right = null;
+      // 和字符串相关联得值
+      this.val = null;
+    }
+  }
+
+  // 这段实现使用含有一个char类型的值c和三条链接的结点构建了三向单词查找树，其中子树的键的首字母分别小于（左子树）、等于（中子树）和大于（右子树）c。
+  // 空间
+  // 命题J。由N个平均长度为w的字符串构造的三向单词查找树中的链接总数在3N到3Nw之间。
+  class TST {
+    constructor() {
+      // 树的根节点
+      this.root = null;
+    }
+
+    // get(String key)
+    get(key) {
+      if (key == null) {
+        console.error("Key cannot be null");
+        return;
+      }
+      if (key.length == 0) {
+        console.error("Key must have a positive length");
+        return;
+      }
+      // 通过$$get方法找到要找的node x
+      var x = this.$$get(this.root, key, 0);
+      if (x == null) return null;
+      return x.val;
+    }
+
+    // Node x，String key，int d
+    // 在查找时，我们首先比较键的首字母和根结点的字母。如果键的首字母较小，就选择左链接；如果较大，就选择右链接；如果相等，则选择中链接。
+    // 然后，递归地使用相同的算法。如果遇到了一个空链接或者当键结束时结点的值为空，那么查找未命中；如果键结束时结点的值非空则查找命中
+    $$get(x, key, d) {
+      // 没找到，返回Null
+      if (x == null) return null;
+      // 找到key中第d个字符的unicode值
+      var c = key.charCodeAt(d);
+      if (c < x.c) {
+        // 要查找的小于根的字母，选择左连接
+        return this.$$get(x.left, key, d);
+      } else if (c > x.c) {
+        // 要查找的大于根的字母，选择右连接
+        return this.$$get(x.right, key, d);
+      } else if (d < key.length - 1) {
+        // 相等选择中链接
+        return this.$$get(x.mid, key, d + 1);
+      } else {
+        // 找到了要找的键，返回
+        return x;
+      }
+    }
+
+    // 在插入一个新键时，首先进行查找，然后和在单词查找树一样，在树中补全键末尾的所有结点
+    put(key, val) {
+      this.root = this.$$put(this.root, key, val, 0);
+    }
+
+    $$put(x, key, val, d) {
+      // 找到key中第d个字符的unicode值
+      var c = key.charCodeAt(d);
+      if (x == null) {
+        // 如果为空
+        x = new TstNode();
+        // 赋值字符
+        x.c = c;
+      }
+      if (c < x.c) {
+        // 小于，找左链接
+        x.left = this.$$put(x.left, key, val, d);
+      } else if (c > x.c) {
+        // 大于，找右链接
+        x.right = this.$$put(x.right, key, val, d);
+      } else if (d < key.length - 1) {
+        // 等于
+        x.mid = this.$$put(x.mid, key, val, d + 1);
+      } else {
+        // 找到了就赋值
+        x.val = val;
+      }
+      return x;
+    }
+
+    // 给定字符的最长前缀
+    longestPrefixOf(s) {
+      if (s.length == 0) {
+        return null;
+      }
+      var length = this.search(this.root, s, 0, 0);
+      if (length == 0) return null;
+      return s.substring(0, length);
+    }
+
+    // search
+    // Node x, String s, int d, int length
+    search(x, s, d, length) {
+      if (x == null) return length;
+      // 下一个字符
+      var nextChar = s.charCodeAt(d);
+      if (x.val != null) {
+        if (nextChar == x.c) {
+          length = d + 1;
+        } else {
+          length = d;
+        }
+      };
+      if (nextChar < x.c) {
+        // 小于找左子树
+        return this.search(x.left, s, d, length);
+      } else if (nextChar > x.c) {
+        // 大于查右子树
+        return this.search(x.right, s, d, length);
+      } else if (d < s.length - 1) {
+        // 等于找中间
+        return this.search(x.mid, s, d + 1, length);
+      } else {
+        // 找到了返回length
+        return length;
+      }
+    }
+  }
+  console.log('-------------------------------------------------------------------------')
+  console.log('TST三向单词查找树')
+  var tst3 = new TST();
+  // tst3.put('sea', 2);
+  // tst3.put('by', 4);
+  // tst3.put('sells', 1);
+  // tst3.put('she', 0);
+  // tst3.put('shells', 3);
+  // tst3.put('the', 5);
+  // tst3.put('a', 6);
+  // console.log(tst3.get('by'))
+  // console.log(tst3.get('sea'))
+  tst3.put('by', 0);
+  tst3.put('be', 2);
+  console.log(tst3.get('be'))
+  console.log(tst3)
+  console.log('-------------------------------------------------------------------------')
+</script>
+
+</html>

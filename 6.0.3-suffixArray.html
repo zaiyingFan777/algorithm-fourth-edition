@@ -1,0 +1,215 @@
+<!--
+ * @Author: zaiying fan zaiying.fan@realai.ai
+ * @Date: 2022-05-25 17:31:05
+ * @LastEditors: zaiying fan zaiying.fan@realai.ai
+ * @LastEditTime: 2022-05-25 18:34:30
+ * @FilePath: \workspace\leetCode\算法4\6.0.3-suffixArray.html
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+
+</body>
+<script>
+  // 6.0.3后缀数组
+  // 6.0.3.1 最长重复子字符串
+  // 6.0.3.2 暴力解法
+  // 作为热身，考虑以下这个简单的任务：给定两个字符串，找到它们的最长公共前缀（两者的前缀字符串中的相同且最长者）。例如，acctgttaac和accgttaa的最长公共前缀是acc
+  // 右边框注中的代码是我们解决更加复杂问题的起点：它所需的时间和相匹配的子字符串长度成正比
+  // 根据lcp()，马上可以得到下面这种暴力解法：将字符串中每个起始位置为i的子字符串与另一个起始位置为j的子字符串相比较，记录匹配的最长子字符串
+  // 这段代码不适合处理长字符串，因为它的运行时间至少是字符串长度的平方级别：不同的子字符串对i和j的数量为N（N-1）/2，因此这种方式调用lcp()的次数将会是～N2/2
+  function lcp(s, t) {
+    var N = Math.min(s.length, t.length);
+    for (var i = 0; i < N; i++) {
+      if (s.charAt(i) != t.charAt(i)) return i;
+    }
+    return N;
+  }
+
+  // 6.0.3.3 后缀排序
+  // 用Java的substring()方法创建一个由字符串s的所有后缀字符串（由字符串的所有位置开始得到的后缀字符串）组成的数组，然后将该数组排序
+  // 算法的关键在于原字符串的每个子字符串都是数组中的某个后缀字符串的前缀
+  // 在排序之后，最长重复子字符串会出现在数组中的相邻位置。因此，只需要遍历排序后的数组一遍即可在相邻元素中找到最长的公共前缀。这种方法比暴力方法有效得多
+
+  // 6.0.3.4 定位字符串
+  // 这次我们也可以用后缀排序的方法解决这个问题，就像3.1节中用二分查找对符号表的第一次实现一样。我们可以将N个后缀作为键，以这些键（后缀）创建一个有序的数组并使用二分查找法搜索数组，比较被查找的键和所有后缀
+
+  // 6.0.3.5 API及其用例
+  // 后缀数组的API
+  // public class SuffixArray
+  //              SuffixArray(String text)   为文本text构建后缀数组
+  //          int length()                   文本text的长度
+  //       String select(int i)              后缀数组中的第i个元素（i在0到N-1之间）
+  //          int index(int i)               select(i)的索引（i在0到N-1之间）
+  //          int lcp(int i)                 select(i)和select(i-1)的最长公共前缀的长度(i在1到N-1之间)
+  //          int rank(String key)           小于键key的后缀数量
+
+  // 注意，select(rank(key))是有序后缀数组中第一个以key为前缀的后缀字符串，键key在正文中出现的其他位置都在后缀数组中紧跟着该条目（请见图6.0.15）
+
+
+  // 6.0.3.6 实现
+  // 算法6.2后缀数组（初级实现）
+  // 3向快速排序字符串
+  // 命题C。使用三向字符串快速排序，构造长度为N的随机字符串的后缀数组，平均所需的空间与N成正比，字符比较次数与～2NlnN成正比。
+  // 命题D。使用后缀数组，我们可以在线性时间内解决后缀排序和最长重复子字符串问题。证明。解决这些问题的优美算法已经超出了本书的范畴，但你在本书的网站上可以找到线性时间的SuffixArray的构造函数和常数时间的lcp()方法的实现。
+  class Quick3String {
+    constructor(a) {
+      // 开启排序
+      this.sort(a);
+    }
+
+    charCodeAt(s, d) {
+      if (d < s.length) {
+        return s.charCodeAt(d);
+      } else {
+        // 当指定的位置超过了字符串的末尾时该方法返回-1
+        return -1;
+      }
+    }
+
+    // 交换方法
+    exch(a, i, j) {
+      var temp = a[i];
+      a[i] = a[j];
+      a[j] = temp;
+    }
+
+    sort(a) {
+      this.$$sort(a, 0, a.length - 1, 0);
+    }
+
+    $$sort(a, lo, hi, d) {
+      // 切的空数组直接跳过
+      if (hi <= lo) return;
+      // 初始化指针
+      var lt = lo,
+        gt = hi;
+      // 找到a[lo]字符串第d的ascii或者unicode值
+      // 哨兵：用来分组的值
+      var v = this.charCodeAt(a[lo], d);
+      var i = lo + 1;
+      while (i <= gt) {
+        var t = this.charCodeAt(a[i], d);
+        // 将a[lo]与其他字母做比较
+        if (t < v) {
+          // a[i] d 得到的字母小于哨兵字母，则交换位置lt与i，然后交换完令lt++, i++
+          // function x(a, b) {console.log(a,b)} var a = 1; var b = 1; x(a++, ++b) => 1 2; a => 2 b => 2
+          this.exch(a, lt++, i++);
+        } else if (t > v) {
+          this.exch(a, i, gt--);
+        } else {
+          i++;
+        }
+      }
+      // a[lo..lt-1] < v = a[lt..gt] < a[gt+1..hi]
+      // 小于以a[lo].d开头字母的
+      this.$$sort(a, lo, lt - 1, d);
+      // v = a[lo].d，有值的话才会继续比较，没有值就不比较了
+      if (v >= 0) {
+        // 等于以a[lo].d开头字母的字符串
+        // 从第二个字母继续往后排
+        this.$$sort(a, lt, gt, d + 1);
+      }
+      // 大于以a[lo].d开头字母的字符串
+      this.$$sort(a, gt + 1, hi, d);
+    }
+  }
+
+  class SuffixArray {
+    constructor(s) {
+      // 字符串（和数组）的长度
+      this.N = s.length;
+      // 后缀数组
+      this.suffixes = new Array(this.N).fill("");
+      // 构建后缀数组
+      for (var i = 0; i < this.N; i++) {
+        this.suffixes[i] = s.substring(i);
+      }
+      // 对后缀数组进行排序
+      new Quick3String(this.suffixes);
+      console.log(this.suffixes, '11111111111111111')
+    }
+
+    length() {
+      return this.N;
+    }
+
+    // 返回排序后后缀数组的第i个元素
+    select(i) {
+      return this.suffixes[i];
+    }
+
+    // select(i)的索引
+    // 意思就是this.suffixes[i]在原始字符串s中的开始索引
+    // 比如abc  this.suffixes[i]为bc，其长度为2，然后index的索引为  3 - 2 = 1
+    index(i) {
+      return this.N - this.suffixes[i].length;
+    }
+
+    // select(i)和select(i-1)的最长公共前缀的长度
+    lcp(i) {
+      return this.$$lcp(this.suffixes[i], this.suffixes[i - 1] || 0);
+    }
+
+    $$lcp(s, t) {
+      var N = Math.min(s.length, t.length);
+      for (var i = 0; i < N; i++) {
+        if (s.charAt(i) != t.charAt(i)) return i;
+      }
+      return N;
+    }
+
+    // 小于键key的后缀数量
+    rank(key) {
+      // 二分查找
+      var lo = 0, hi = this.N - 1;
+      while(lo <= hi) {
+        // 找到中间值
+        var mid = Math.floor((lo + hi) / 2);
+        var cmp = key.localeCompare(this.suffixes[mid]);
+        if (cmp < 0) {
+          hi = mid - 1;
+        } else if (cmp > 0) {
+          lo = mid + 1;
+        } else {
+          return mid;
+        }
+      }
+      // 比如[a, b, c, d]找小于e的数量，最后lo = 4结束循环，4就是小于e的数量
+      return lo;
+    }
+  }
+
+  // var sa = new SuffixArray('aacaagtttacaagc')
+  var sa = new SuffixArray('it was the best of times it was the');
+
+  // 最长重复子字符串算法的用例
+  // LRS
+  function LRS(text) {
+    var N = text.length;
+    // 构建后缀数组
+    var sa = new SuffixArray(text);
+    // 最长重复字串
+    var lrs = "";
+    for(var i = 0; i < N; i++) {
+      // 对排序后的suffix数组找其中每个的最长公共前缀
+      var length = sa.lcp(i);
+      if (length > lrs.length) {
+        lrs = sa.select(i).substring(0, length);
+      }
+    }
+    return lrs;
+  }
+  console.log(LRS('aacaagtttacaagc')) // acaag
+</script>
+
+</html>

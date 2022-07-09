@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+
+</body>
+<script>
+  // 5.1字符串排序
+  // 对于许多排序应用，决定顺序的键都是字符串。本节中，我们将会考察能够利用字符串的特殊性质将字符串键排序的方法，它们将比第2章学过的通用排序方法效率更高。
+  // 我们将学习两类完全不同的字符串排序方法
+  // 第一类方法会从右到左检查键中的字符。
+  // 这种方法一般被称为低位优先（Least-Significant-Digit First, LSD）的字符串排序
+  // 第二类方法会从左到右检查键中的字符，首先查看的是最高位的字符。
+  // 高位优先的字符串排序的吸引人之处在于，它们不一定需要检查所有的输入就能够完成排序
+  // 高位优先的字符串排序和快速排序类似，因为它们都会将需要排序的数组切分为独立的部分并递归地用相同的方法处理子数组来完成排序。
+  // 它们的区别之处在于高位优先的字符串排序算法在切分时仅使用键的第一个字符，而快速排序的比较则会涉及键的全部
+
+
+  // 5.1.1 键索引计数法
+  // .1 频率统计
+  // 第一步就是使用int数组count[]计算每个键出现的频率
+  // 对于数组中的每个元素，都使用它的键访问count[]中的相应元素并将其加1。如果键为r，则将count[r+1]加1。
+  // for(var i = 0; i < N; i++) {
+  //   count[a[i].key()+1]++;
+  // }
+  // .2 将频率转换为索引
+  // 接下来，我们会使用count[]来计算每个键在排序结果中的起始索引位置
+  // 在这个示例中，因为第一组中有3个人，第二组中有5个人，因此第三组中的同学在排序结果数组中的起始位置为8
+  // 一般来说，任意给定的键的起始索引均为所有较小的键所对应的出现频率之和。
+  // 对于每个键值r，小于r+1的键的频率之和为小于r的键的频率之和加上count[r]，因此从左向右将count[]转化为一张用于排序的索引表是很容易的（请见图5.1.3）
+  // R = 3  r = 0 1 2  count[1](0) += count[0]  count[2](3) += count[1]  count[3](8) += count[2] (ps: count[3] += count[2]等价于count[3] = count[3] + count[2])
+  // for(var r = 0; r < R; r++) {
+  //   count[r+1] += count[r];
+  // }
+  // .3 数据分类
+  // 在将count[]数组转换为一张索引表之后，将所有元素（学生）移动到一个辅助数组aux[]中以进行排序
+  // 每个元素在aux[]中的位置是由它的键（组别）对应的count[]值决定，在移动之后将count[]中对应元素的值加1，以保证count[r]总是下一个键为r的元素在aux[]中的索引位置
+  // 这个过程只需遍历一遍数据即可产生排序结果，
+  // for(var i = 0; i < N; i++) {
+  //   aux[count[a[i].key()]++] = a[i]; // 这里比如var a = [1,2,3]; var b = 1; a[b]=>2; a[b++]=>2; b=> 2   
+  // }
+  // .4 回写
+  // 因为我们在将元素移动到辅助数组的过程中完成了排序，所以最后一步就是将排序的结果复制回原数组中。
+  // 命题A。键索引计数法排序N个键为0到R-1之间的整数的元素需要访问数组11N+ 4R+1次。
+  // 证明。根据代码可得，初始化数组会访问数组N+R+1次。在第一次循环中，N个元素均会使计数器的值加1（访问数组2N次）；第二次循环会进行R次加法（访问数组2R次）；
+  // 第三次循环会使计数器的值增大N次并移动N次数据（访问数组3N次）；第四次循环会移动数据N次（访问数组2N次）。所有的移动操作都维护了等键元素的相对顺序。
+
+  // 键索引计数法是一种对于小整数键排序非常有效却常常被忽略的排序方法
+
+  // 5.1.2 低位优先的字符串排序
+  // 我们学习的第一个字符串排序算法叫做低位优先（LSD）的字符串排序
+  // 适于使用低位优先的字符串排序算法的典型情况
+  // 车牌号由数字和字母混合组成，因此一般都将它们表示为字符串。在最简单的情况中（例如图5.1.6所示的加利福尼亚州的车牌号），这些字符串的长度都是相同的。
+  // 这种情况在排序应用中很常见——比如电话号码、银行账号、IP地址等都是典型的定长字符串。
+  // 将此类字符串排序可以通过键索引计数法来完成。
+  // 如果字符串的长度均为W，那就从右向左以每个位置的字符作为键，用键索引计数法将字符串排序W遍
+  // 键索引计数法（a[].key()为[0, R)之间的一个整数）
+  // 索引计数法
+  class IndexCounting {
+    constructor(a, R) {
+      var N = a.length;
+      // 辅助排序数组aux
+      this.aux = new Array(N).fill('');
+      // 存储键的数组
+      // 对于数组中的每个元素，都使用它的键访问count[]中的相应元素并将其加1。如果键为r，则将count[r+1]加1。
+      // 比如a[i].key()最大为4，则R就是5，创建的数组长度为R+1为6，这样的话，a[i].key()+1就可以满足了 
+      this.count = new Array(R + 1).fill(0);
+      // 第一步：计算出现频率
+      for (let i = 0; i < N; i++) {
+        this.count[this.key(a[i]) + 1]++;
+      }
+      // 第二步：将频率转换为索引
+      for (let r = 0; r < R; r++) {
+        this.count[r + 1] += this.count[r];
+      }
+      // 第三步：将元素分类
+      for (let i = 0; i < N; i++) {
+        this.aux[this.count[this.key(a[i])]++] = a[i];
+      }
+      // 第四步：回写
+      for (let i = 0; i < N; i++) {
+        a[i] = this.aux[i];
+      }
+    }
+
+    key(s) {
+      return Number(s.split(',')[1]);
+    }
+  }
+
+  // 命题B。低位优先的字符串排序算法能够稳定地将定长字符串排序。
+
+  // 算法5.1低位优先的字符串排序
+  class LSD {
+    constructor(a, W) {
+      // 通过前W个字符将a[]排序
+      let N = a.length;
+      let R = 256;
+      // 辅助排序数组aux
+      this.aux = new Array(N).fill('');
+      // W个字符，所以需要进行排序W次
+      // 从右往左排
+      // 要将每个元素均为含有W个字符的字符串数组a[]排序，要进行W次键索引计数排序：从右向左，以每个位置的字符为键排序一次。
+      for (let d = W - 1; d >= 0; d--) {
+        // 根据第d个字符用键索引计数法排序
+        let count = new Array(R + 1).fill(0);
+        // 第一步：计算出现频率
+        for (let i = 0; i < N; i++) {
+          // var a = 'abc'; a.charAt(0) => 'a'
+          // var a = 'abc'; a.a.charCodeAt(0) => 97
+          // 这里用charCodeAt返回Unicode，ascii256个，但是unicode前128个跟ascii是一致的 我们这里不用偏门的字符是可以满足的
+          count[a[i].charCodeAt(d) + 1]++;
+        }
+        // 第二步：将频率转换为索引
+        for (let r = 0; r < R; r++) {
+          count[r + 1] += count[r];
+        }
+        // 第三步：将元素分类
+        for (let i = 0; i < N; i++) {
+          this.aux[count[a[i].charCodeAt(d)]++] = a[i];
+        }
+        // 第四步：回写
+        for (let i = 0; i < N; i++) {
+          a[i] = this.aux[i];
+        }
+      }
+    }
+  }
+  console.log('-------------------------------------------------------------------------------')
+  console.log('LSD--低位优先算法')
+  // 要将每个元素均为含有W个字符的字符串数组a[]排序，要进行W次键索引计数排序：从右向左，以每个位置的字符为键排序一次。
+  var lsd = new LSD(['4PGC938', '2IYE230', '3CI0720', '1ICK750', '1OHV845', '4JZY524', '1ICK750', '3CIO720', '1OHV845',
+    '1OHV845', '2RLA629', '2RLA629', '3ATW723'
+  ], 7)
+  console.log(lsd)
+  console.log('indexCounting')
+  var icDemo = ['Anderson,2', 'Brown,3', 'Davis,3', 'Garcia,4', 'Harris,1', 'Jackson,3', 'Johnson,4', 'Jones,3',
+    'Martin,1', 'Martinez,2', 'Miller,2', 'Moore,1', 'Robinson,2', 'Smith,4', 'Taylor,3', 'Thomas,4', 'Thompson,4',
+    'White,2', 'Williams,3', 'Wilson,4'
+  ];
+  var ic = new IndexCounting(icDemo, 5)
+  console.log(ic)
+  console.log('-------------------------------------------------------------------------------')
+
+  // 5.1.3 高位优先的字符串排序
+  // 要实现一个通用的字符串排序算法（字符串的长度不一定相同），我们应该考虑从左向右遍历所有字符
+  // 我们知道，以a开头的字符串应该排在以b开头的字符串前面，等等。实现这种思想的一个很自然方法就是一种递归算法，被称为高位优先（MSD）的字符串排序
+  // 步骤：
+  // 1.首先用键索引计数法将所有字符串按照首字母排序，2.然后（递归地）再将每个首字母所对应的子数组排序（忽略首字母，因为每一类中的所有字符串的首字母都是相同的）
+  // 和快速排序一样，高位优先的字符串排序会将数组切分为能够独立排序的子数组来完成排序任务，但它的切分会为每个首字母得到一个子数组，而不是像快速排序中那样产生固定的两个或三个切分
+
+  // .1 对字符串末尾的约定
+  // 在高位优先的字符串排序算法中，要特别注意到达字符串末尾的情况。在排序中，合理的做法是将所有字符都已被检查过的字符串所在的子数组排在所有子数组的前面，这样就不需要递归地将该子数组排序
+  // 为了简化这两步计算，我们使用了一个接受两个参数的私有方法charAt()来将字符串中字符索引转化为数组索引，当指定的位置超过了字符串的末尾时该方法返回-1
+  // 然后将所有返回值加1，得到一个非负的int值并用它作为count[]的索引
+  // 因为键索引计数法本来就需要一个额外的位置，所以使用代码int count[] = new int[R+2]
+  // 创建记录统计频率的数组（将所有值设为0）
+
+  // .2 指定的字母表
+  // 高位优先的字符串排序的成本与字母表中的字符数量有很大关系。我们可以很容易地修正排序算法，接受一个Alphabet对象作为参数，以改进基于较小的字母表的字符串排序程序的性能
+  // ❏在构造函数中用一个alpha对象保存字母表；❏在构造函数中将R设为alpha.R()；❏在charAt()方法中将s.charAt(d)替换为alpha. toIndex(s.charAt(d))。
+
+  // 算法5.2高位优先的字符串排序
+  // 插入排序
+  // public class InsertionSort {
+
+  //   public static void insertionSort(Comparable[] array) {
+
+  //     for (int i = 0; i < array.length; i++) {
+  //       for (int j = i; j > 0 && array[j - 1].compareTo(array[j]) > 0; j--) {
+  //         Comparable temp = array[j];
+  //         array[j] = array[j - 1];
+  //         array[j - 1] = temp;
+  //       }
+  //     }
+  //   }
+
+  //   public static void insertionSort(Comparable[] array, int low, int high) {
+  //     for (int i = low; i <= high; i++) {
+  //       for (int j = i; j > 0 && ArrayUtil.more(array[j - 1], array[j]); j--) {
+  //         Comparable temp = array[j];
+  //         array[j] = array[j - 1];
+  //         array[j - 1] = temp;
+  //       }
+  //     }
+  //   }
+  // }
+  var insertSort = function (nums) {
+    // 假设第一个是已经排序好的，所以最外层循环从i=1开始
+    for (var i = 1; i < nums.length; i++) {
+      // i与前面排好的进行比较选择合适的位置插入
+      var key = nums[i]; // 本轮排序的元素
+      var j = i - 1; // 本轮排序中前面已经排好序的最后一个元素
+      // 将key与nums[j]进行挨个比较并且考虑边界元素
+      while (nums[j] > key && j >= 0) {
+        // 将key与nums[j]更换位置
+        var temp = nums[j];
+        nums[j] = key;
+        nums[j + 1] = temp;
+        j--;
+      }
+    }
+    return nums;
+  }
+
+  var insertionSort = function (array, low, hi) {
+    for (var i = low; i <= hi; i++) {
+      for (var j = i; j > 0 && array[j - 1] > array[j]; j--) {
+        var temp = array[j];
+        array[j] = array[j - 1];
+        array[j - 1] = temp;
+      }
+    }
+    return array;
+  }
+
+  // 基于插入排序的希尔排序
+  var shellSort = function(nums) {
+    // 将nums按升序排列
+    var n = nums.length;
+    // 将nums分为h段，每个h有1个元素
+    var h = 1;
+    while(h < Math.floor(n / 3)) {
+      h = 3*h + 1; // 1 4 13 40.....
+    }
+    while(h >= 1) {
+      console.log(h)
+      // 将数组变为h有序
+      for(var i = h; i < n; i++) {
+        // 将a[i]插入到a[i-h]，a[i-2*h]，a[i-3*h]...之中
+        for(var j = i; j >= h && nums[j] < nums[j-h]; j -= h) { // java less(a[j], a[j-h])  less(v, w){ return v.compareTo(w) < 0 }
+          // exch(nums, i, j) { t = a[i]; a[i] = a[j]; a[j] = t }
+          var temp = nums[j];
+          nums[j] = nums[j-h];
+          nums[j-h] = temp;
+        }
+        console.log(nums, '111')
+      }
+      h = Math.floor(h / 3)
+    }
+    return nums;
+  }
+
+
+  // 在将一个字符串数组a[]排序时，首先根据它们的首字母用键索引计数法进行排序，然后（递归地）根据子数组中的字符串的首字母将子数组排序。
+
+  // 高位优先的字符串排序：
+  // 首先用键索引计数法将所有字符串按照首字母排序
+  // 然后递归地再将每个首字母所对应的子数组排序（忽略首字母，因为每一类中的所有字符串的首字母都是相同的）
+  class MSD {
+    constructor(a) {
+      // 通过前W个字符将a[]排序
+      this.N = a.length;
+      // 基数
+      this.R = 256;
+      // 小数组的切换阈值
+      this.M = 0; // 15
+      // 数据分类的辅助数组
+      this.aux = new Array(this.N).fill('');
+
+      // 开启排序
+      this.sort(a)
+      console.log(a)
+    }
+
+    // charAt(String s, int d)
+    // 在高位优先的字符串排序算法中，要特别注意到达字符串末尾的情况。在排序中，合理的做法是将所有字符都已被检查过的字符串所在的子数组排在所有子数组的前面，这样就不需要递归地将该子数组排序
+    // 为了简化这两步计算，我们使用了一个接受两个参数的私有方法charAt()来将字符串中字符索引转化为数组索引，当指定的位置超过了字符串的末尾时该方法返回-1
+    charCodeAt(s, d) {
+      if (d < s.length) {
+        return s.charCodeAt(d);
+      } else {
+        // 当指定的位置超过了字符串的末尾时该方法返回-1
+        return -1;
+      }
+    }
+
+    // String[] a
+    sort(a) {
+      this.$$sort(a, 0, this.N - 1, 0);
+    }
+
+    // String[] a, int lo, int hi, int d
+    $$sort(a, lo, hi, d) {
+      // 以第d个字符为键将a[lo]至a[hi]排序
+
+      // 增加了一个条件语句以在子数组较小时切换至插入排序。
+      if (hi <= lo + this.M) {
+        console.log('11111111111111111')
+        // insertSort(a);
+        this.insertionSort(a, lo, hi, d);
+        return;
+      }
+      console.log('22222222222222222222')
+
+      // 计算频率
+      // 然后将所有返回值加1，得到一个非负的int值并用它作为count[]的索引
+      // 这种转换意味着字符串中的每个字符都可能产生R+1种不同的值：0表示字符串的结尾，1表示字母表的第一个字符，2表示字母表的第二个字符
+      // 因为键索引计数法本来就需要一个额外的位置，所以使用代码int count[] = new int[R+2]
+      let count = new Array(this.R + 2).fill(0);
+      for (let i = lo; i <= hi; i++) {
+        count[this.charCodeAt(a[i], d) + 2]++;
+        console.log(this.charCodeAt(a[i], d) + 2)
+      } 
+      console.log(JSON.stringify(count))
+      // 将频率转换为索引
+      for(let r = 0; r < this.R + 1; r++) {
+        count[r + 1] += count[r];
+      }
+      console.log(JSON.stringify(count), JSON.stringify(a), lo, d)
+      // 数据分类
+      for(let i = lo; i <= hi; i++) {
+        this.aux[count[this.charCodeAt(a[i], d) + 1]++] = a[i];
+      }
+      console.log(JSON.stringify(this.aux))
+      // 回写
+      for(let i = lo; i <= hi; i++) {
+        // 这里使用i-lo，是因为每次排序aux是从0开始的，
+        a[i] = this.aux[i - lo];
+      }
+      console.log(count, 'count', JSON.stringify(this.aux), JSON.stringify(a))
+      // 递归的以每个字符为键进行排序
+      // 增加了一个键索引计数法的循环来完成递归调用。
+      for(let r = 0; r < this.R; r++) {
+        // 这里将化为小区间，比如["are", "by", "she", "sells"]
+        // 上面数组能够排序的分为 0 0 1 ， 1 1 1, 2 3 1
+        this.$$sort(a, lo + count[r], lo + count[r + 1] - 1, d + 1);
+      }
+    }
+
+    // 对前d个字符均相同的字符串执行插入排序
+    // String[] a, int lo, int hi, int d
+    insertionSort(a, lo, hi, d) {
+      // 从第d个字符开始对a[lo]到a[hi]排序
+      for(var i = lo; i <= hi; i++) {
+        console.log(a, lo, hi, d, '对数组较小的时候使用插入排序插入排序')
+        for(var j = i; j > lo && this.less(a[j], a[j - 1], d); j--) { 
+          // 交换位置 j与j-1
+          // a[j] < a[j-1]交换位置
+          // exch(a, j, j-1)
+          var temp = a[j];
+          a[j] = a[j - 1];
+          a[j - 1] = temp;
+        }
+      }
+    }
+
+    // String v，String w，int d
+    less(v, w, d) {
+      // v是否小于w，如果小于则返回-1<0 true
+      return v.substring(d).localeCompare(w.substring(d)) < 0;
+    }
+  }
+  console.log('-----------------------------------------------------------------')
+  console.log('MSD--高位优先排序')
+  // var msd = new MSD(["she", "sells", "seashells", "by", "the", "seashore", "the", "shells", "she", "sells", "are", "surely", "seashells"])
+  // var msd = new MSD(["she", "sells", "are", "by", "sells"])
+  var msd = new MSD(["sells", "sell", "are", "by"])
+  console.log(msd)
+  console.log('-----------------------------------------------------------------')
+
+
+  // 5.1.4 三向字符串快速排序
+  // 我们也可以根据高位优先的字符串排序算法改进快速排序，根据键的首字母进行三向切分，仅在中间子数组中的下一个字符（因为键的首字母都与切分字符相等）继续递归排序
+  // 使用首字母将数据切分为“小于”、“等于”和“大于”的三个子数组，递归地将子数组排序（在“等于”子数组中忽略首字母）
+  // 尽管排序的方式有所不同，但三向字符串快速排序根据的仍然是键的首字母并使用递归方法将其余部分的键排序
+  // 三向字符串快速排序只将数组切分为三部分，因此当相应的高位优先的字符串排序产生的非空切分较多时，它需要移动的数据量就会变大，因为它需要进行一系列的三向切分才能取得多向切分的效果
+
+  // 算法5.3三向字符串快速排序
+  // 在将字符串数组a[]排序时，根据它们的首字母进行三向切分，然后（递归地）将得到的三个子数组排序：一个含有所有首字母小于切分字符的字符串子数组，
+  // 一个含有所有首字母等于切分字符的字符串的子数组（排序时忽略它们的首字母），一个含有所有首字母大于切分字符的字符串的子数组。
+
+  // 对于字符串类型的键，标准的快速排序以及第2章中的其他排序方法实际上都是高位优先类的字符串排序算法，这是因为String类的compareTo()方法是从左到右访问字符串中的所有字符的。
+  // 也就是说，compareTo()在首字母不同时只会访问首字母，在首字母相同且第二个字母不同时只会访问它们的前两个字
+  
+  // 实际上你可以把算法5.3看作对标准快速排序的改进，使之能够记录已知相同的多个开头字母。在较小的子数组中，排序所需的大多数比较都已经完成，其中的字符串很可能含有多个相同的开头字母。
+  // 标准的方法在每次比较时仍然需要扫描整个字符串，但三向字符串快速排序则可以避免这一点。
+
+  // 命题E。要将含有N个随机字符串的数组排序，三向字符串快速排序平均需要比较字符～2NlnN次。
+  class Quick3String {
+    constructor(a) {
+      // 开启排序
+      this.sort(a);
+      console.log(a)
+    }
+
+    charCodeAt(s, d) {
+      if (d < s.length) {
+        return s.charCodeAt(d);
+      } else {
+        // 当指定的位置超过了字符串的末尾时该方法返回-1
+        return -1;
+      }
+    }
+
+    // 交换方法
+    exch(a, i, j) {
+      var temp = a[i];
+      a[i] = a[j];
+      a[j] = temp;
+    }
+
+    sort(a) {
+      this.$$sort(a, 0, a.length - 1, 0);
+    }
+
+    $$sort(a, lo, hi, d) {
+      console.log(JSON.stringify(a), lo, hi, d, '111111111111111')
+      // 切的空数组直接跳过
+      if (hi <= lo) return;
+      // 初始化指针
+      var lt = lo, gt = hi;
+      console.log(lt, gt, '滑动的指针')
+      // 找到a[lo]字符串第d的ascii或者unicode值
+      // 哨兵：用来分组的值
+      var v = this.charCodeAt(a[lo], d);
+      var i = lo + 1;
+      while(i <= gt) {
+        var t = this.charCodeAt(a[i], d);
+        // 将a[lo]与其他字母做比较
+        if (t < v) {
+          // a[i] d 得到的字母小于哨兵字母，则交换位置lt与i，然后交换完令lt++, i++
+          // function x(a, b) {console.log(a,b)} var a = 1; var b = 1; x(a++, ++b) => 1 2; a => 2 b => 2
+          this.exch(a, lt++, i++);
+        } else if (t > v) {
+          this.exch(a, i, gt--);
+        } else {
+          i++;
+        }
+      }
+      // a[lo..lt-1] < v = a[lt..gt] < a[gt+1..hi]
+      // 小于以a[lo].d开头字母的
+      this.$$sort(a, lo, lt - 1, d);
+      // v = a[lo].d，有值的话才会继续比较，没有值就不比较了
+      if (v >= 0) {
+        // 等于以a[lo].d开头字母的字符串
+        // 从第二个字母继续往后排
+        this.$$sort(a, lt, gt, d + 1);
+      }
+      // 大于以a[lo].d开头字母的字符串
+      this.$$sort(a, gt + 1, hi, d);
+    }
+  }
+  console.log('--------------------------------------------------------------');
+  console.log('三向快速切分切分')
+  // var q3s = new Quick3String(["she", "sells", "seashells", "by", "the", "seashore", "the", "shells", "she", "sells", "are", "surely", "seashells"]);
+  // var q3s = new Quick3String(["she", "sells", "are", "by", "sells"]); 
+  var q3s = new Quick3String(["sells", "sell", "are", "by"]);  // 把by换成z
+  console.log(q3s)
+  console.log('--------------------------------------------------------------');
+</script>
+
+</html>

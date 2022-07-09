@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+
+</body>
+<script>
+  // 散列表
+  // 如果所有的键都是小整数，我们可以用一个数组来实现无序的符号表，将键作为数组的索引而数组中键i处储存的就是它对应的值。这样我们就可以快速访问任意键的值。
+  // 它是这种简易方法的扩展并能够处理更加复杂的类型的键。我们需要用算术操作将键转化为数组的索引来访问数组中的键值对
+
+  // 使用散列的查找算法分为两步，第一步是散列函数将被查找的键转化为数组的一个索引。理想情况，不同的键都能转化为不同的索引值，但是我们需要面对两个或者多个键
+  // 都会散列到相同的索引的情况，因此散列查找的第二步就是处理碰撞冲突的过程，：两种解决碰撞的方法：（（拉链法和线性探测法））。
+
+  // 使用散列表，你可以实现在一般应用中拥有（均摊后）常数级别的查找和插入操作的符号表。
+
+  // 一、散列函数：
+  // 我们面对的第一个问题就是散列函数的计算，这个过程会将键转化为数组的索引。
+  // 如果我们有一个能够保存M个键值对的数组，那么我们就需要一个能够将任意键转化为该数组范围内的索引（[0, M-1]范围内的整数）的散列函数。
+  // 散列函数和键的类型有关。严格地说，对于每种类型的键都我们都需要一个与之对应的散列函数
+
+  // 1正整数
+  // 将整数散列最常用方法是除留余数法。
+  // 我们选择大小为素数M的数组，对于任意正整数k，计算k除以M的余数。这个函数的计算非常容易（在Java中为k% M）并能够有效地将键散布在0到M-1的范围内。
+  // 2.浮点数
+  // 如果键是0到1之间的实数，我们可以将它乘以M并四舍五入得到一个0至M-1之间的索引值
+  // 问题：尽管这个方法很容易理解，但它是有缺陷的，因为这种情况下键的高位起的作用更大，最低位对散列的结果没有影响
+  // 解决：修正这个问题的办法是将键表示为二进制数然后再使用除留余数法（Java就是这么做的）。
+  // 3.字符串
+  // 除留余数法也可以处理较长的键，例如字符串，我们只需将它们当作大整数即可。
+  // var hash = 0;
+  // var s = 'hello';
+  // // 循环字符串
+  // for(var i = 0; i < s.length; i++) {
+  //   hash = (R*hash + s.charAt(i)) % M;
+  // }
+  // var s = 'hello'
+  // 1. str.charAt(index);  s.charAt(0) => 'h'
+  // 2. str.charCodeAt(index); 返回指定位置的字符的 Unicode 编码。这个返回值是 0 - 65535 之间的整数。s.charCodeAt(1) => 101
+  // “char 在java中是2个字节。java采用unicode,2个字节(16位)来表示一个字符。”
+  // Java的charAt()函数能够返回一个char值，即一个非负16位整数。
+  // 如果R比任何字符的值都大，这种计算相当于将字符串当作一个N位的R进制值，将它除以M并取余。
+  // 4.组合键
+  // 如果键的类型含有多个整型变量，我们可以和String类型一样将它们混合起来。例如，假设被查找的键的类型是Date，其中含有几个整型的域：day（两个数字表示的日）, 
+  // month（两个数字表示的月）和year（4个数字表示的年）。我们可以这样计算它的散列值：
+  // int hash = (((day*R+month)%M)*R+year)%M;
+  // 5.java的约定
+  // 每种数据类型都需要相应的散列函数，于是Java令所有数据类型都继承了一个能够返回一个32比特整数的hashCode()方法。每一种数据类型的hashCode()方法都必须和equals()方法一致。
+  // 也就是说，如果a.equals(b)返回true，那么a.hashCode()的返回值必然和b.hashCode()的返回值相同。相反，如果两个对象的hashCode()方法的返回值不同，那么我们就知道这两个对象是不同的
+  // 请注意，这说明如果你要为自定义的数据类型定义散列函数，你需要同时重写hashCode()和equals()两个方法
+  // 6.将hashCode()的返回值转化为一个数组索引
+  // 因为我们需要的是数组的索引而不是一个32位的整数，我们在实现中会将默认的hashCode()方法和除留余数法结合起来产生一个0到M-1的整数，
+  // http://c.biancheng.net/view/5469.html
+  // 0x7fffffff => 2147483647
+  // 位与（&）
+  // 1 & 1 => 1; 1 & 0 => 0; 0 & 1 => 0; 0 & 0 => 0;
+  // console.log(12 & 5);  //返回值4
+  // private int hash(Key x) {
+  //   return (x.hashCode() & 0x7fffffff) % M;
+  // }
+  // 这段代码会将符号位屏蔽（将一个32位整数变为一个31位非负整数），然后用除留余数法计算它除以M的余数。
+
+  // 7.自定义的hashCode方法
+  // 散列表的用例希望hashCode()方法能够将键平均地散布为所有可能的32位整数。
+  // 对于任意对象x，你可以调用x.hashCode()并认为有均等的机会得到2^32个不同整数中的任意一个32位整数值
+  // 具体看书
+  // 
+  // 8.软缓存
+  // 如果散列值的计算很耗时，那么我们或许可以将每个键的散列值缓存起来，即在每个键中使用一个hash变量来保存它的hashCode()的返回值
+  // 第一次调用hashCode()方法时，我们需要计算对象的散列值，但之后对hashCode()方法的调用会直接返回hash变量的值。Java的String对象的hashCode()方法就使用了这种方法来减少计算量。
+
+
+  // 二、基于拉链法的散列表
+  // 一个散列函数能够将键转化为数组索引。散列算法的第二步是碰撞处理，也就是处理两个或多个键的散列值相同的情况。一种直接的办法是将大小为M的数组中的每个元素指向一条链表，
+  // 链表中的每个结点都存储了散列值为该元素的索引的键值对。这种方法被称为拉链法，因为发生冲突的元素都被存储在链表中。这个方法的基本思想就是选择足够大的M，使得所有链表都尽可能短以保证高效的查找。查找分两步：首先根据散列值找到对应的链表，然后沿着链表顺序查找相应的键。
+
+  // 结点
+  class Node {
+    constructor(key, val, next) {
+      this.key = key;
+      this.val = val;
+      this.next = next;
+    }
+  }
+
+  // 存放链表对象的数组
+  class SequentialSearchST {
+    constructor() {
+      // 链表首节点
+      this.first = null;
+      this.size = 0;
+    }
+
+    // 查找
+    get(key) {
+      // 查找给定的键，返回相关的值
+      for (var x = this.first; x != null; x = x.next) { // x = x.next是执行完下面结构体后才执行的
+        if (key === x.key) {
+          return x.val; // 命中
+        }
+      }
+      return null; // 未命中
+    }
+
+    // 安排
+    put(key, val) {
+      // 查找给定的键，找到则更新其值，否则在表中新建结点 
+      for (var x = this.first; x != null; x = x.next) {
+        // console.log(key, '~~~~')
+        if (key === x.key) {
+          x.val = val;
+          return; // 命中更新
+        }
+      }
+      this.first = new Node(key, val, this.first) // 未命中，新建节点
+      this.size++;
+    }
+
+    // 删除
+    delete(key) {
+      if (key === null) {
+        console.error('key不能为null!!!')
+        return;
+      }
+
+      // // 判断是否为空
+      // if (this.isEmpty()) {
+      //   console.log('为空，就没必要删除了')
+      //   return;
+      // }
+
+      // 如果删除的是first结点
+      if (this.first.key === key) {
+        // 哪怕只有一个结点也没问题
+        this.first = this.first.next;
+        this.size--;
+        return;
+      }
+
+      for (var x = this.first; x != null; x = x.next) {
+        // 找到被删元素的前一个元素
+        if (x.next != null && x.next.key === key) {
+          // 将下一个元素删除
+          x.next = x.next.next;
+          this.size--;
+          return;
+        }
+      }
+    }
+
+    // contains 查到不为null返回true，查到为null返回false
+    contains(key) {
+      if (key === null) {
+        console.error('key不能为null!!!');
+        return;
+      }
+      return this.get(key) != null;
+    }
+  }
+
+  // 基于拉链法的散列表
+  // 1.将N个数存放到m条散列表里面，将这m条散列表存放到数组里
+  // 2.这里的SeparateChainingHashST是另一种采用一般性的策略，为M个元素分别构建符号表来保存散列到这里的键，
+  // SeparateChainingHashST使用了一个SequentialSearchST对象的数组,在Put和get的实现中先计算散列函数来选定被查找的SequentialSearchST对象，然后使用
+  // 符号表的Put和get方法来完成相应的任务
+
+  // 步骤
+  // 1.维护一个数组，存放m条链表，index为链表k的散列值，相同散列值的结点会添加到对应列表上，如果先有了A-0后面又有了A-12这时候只需要更新值
+
+  // 如果散列函数不是均匀和独立的，那么查找和插入的成本就可能和N成正比，也就是和顺序查找类似。
+  // 在一张含有M条链表和N个键的的散列表中，未命中查找和插入操作所需的比较次数为～N/M。
+  // 在实现基于拉链法的散列表时，我们的目标是选择适当的数组大小M，既不会因为空链表而浪费大量内存，也不会因为链表太长而在查找上浪费太多时间。
+  // 当内存不是很紧张时，可以选择一个足够大的M，使得查找需要的时间变为常数；当内存紧张时，选择尽量大的M仍然能够将性能提高M倍
+  class SeparateChainingHashST {
+    constructor(M) {
+      // N个数存到M条链表上，平均每条链表的长度为N/M
+      this.N = 0; // 键值对的总数
+      // 创建M条链表
+      this.M = M; // 散列表的大小（条数）
+      this.st = []; // 存放链表对象的数组，数组的大小是动态的
+    }
+
+    // hashCode
+    // hashCode(str) {
+    //   var hash = 0;
+    //   if (str.length == 0) return hash;
+    //   for (var i = 0; i < str.length; i++) {
+    //     var char = str.charCodeAt(i);
+    //     hash = ((hash << 5) - hash) + char;
+    //     hash = hash & hash; // Convert to 32bit integer
+    //   }
+    //   return hash;
+    // }
+    hashCode(str) {
+      var h = 0,
+        off = 0;
+      var len = str.length;
+      for (var i = 0; i < len; i++) {
+        h = 31 * h + str.charCodeAt(off++);
+      }
+      var t = -2147483648 * 2;
+      while (h > 2147483647) {
+        h += t
+      }
+      return h;
+    }
+
+    // 计算key的散列值
+    hash(key) {
+      return (this.hashCode(key) & 0x7fffffff) % this.M;
+    }
+
+    // 查找key
+    get(key) {
+      return this.st[this.hash(key)].get(key);
+    }
+
+    // 插入key val
+    put(key, val) {
+      // 先计算散列值查看st数组有无链表，没有则创建SequentialSearchST对象，将散列值为index，SequentialSearchST为item
+      if (this.st[this.hash(key)]) {
+        // st里对象是否包括这个key
+        if (!this.st[this.hash(key)].contains(key)) {
+          this.N++;
+        }
+        // 如果有，则更新值
+        this.st[this.hash(key)].put(key, val);
+      } else {
+        // 如果没有则插入到st数组
+        this.st[this.hash(key)] = new SequentialSearchST();
+        this.st[this.hash(key)].put(key, val);
+        this.N++;
+      }
+    }
+
+    delete(key) {
+      // 当Key所对应的hash在st数组里，才能删除
+      if (this.st[this.hash(key)]) {
+        // 如果有，则更新值
+        this.st[this.hash(key)].delete(key);
+        this.N--;
+      }
+    }
+  }
+
+  var test = new SeparateChainingHashST(5);
+  test.put('S', 0);
+  test.put('E', 1);
+  test.put('A', 2);
+  test.put('R', 3);
+  test.put('C', 4);
+  test.put('H', 5);
+  test.put('E', 6);
+  test.put('X', 7);
+  test.put('A', 8);
+  test.put('M', 9);
+  test.put('P', 10);
+  test.put('L', 11);
+  test.put('E', 12);
+  // test.delete('E');
+  console.log(test)
+
+  // 三、基于线性探测法的散列表
+  // 实现散列表的另一种方式就是用大小为M的数组保存N个键值对，其中M＞N。我们需要依靠数组中的空位解决碰撞冲突。基于这种策略的所有方法被统称为开放地址散列表。
+  // 我们用散列函数找到键在数组中的索引，检查其中的键和被查找的键是否相同。如果不同则继续查找（将索引增大，到达数组结尾时折回数组的开头），直到找到该键或者遇到一个空元素
+  // 不同则将index+1继续寻找，直到找到（找到key相同的）或遇到为空，遇到为空就将该index设为该值的散列值，item存放key，如果是最后一个就折回数组的开头找到为空的赋值
+
+  // 基于线性探测的符号表
+  // 书中demo的M为16
+  // delete以及resize还没有评测！！！！
+  class LinearProbingHashST {
+    constructor(M) {
+      this.N = 0; // 符号表中键值对的总数
+      this.M = M; // 线性探测表的大小
+      this.keys = new Array(M); // 存放键的数组
+      this.vals = new Array(M); // 存放值的数组
+      // 静默数组
+      // 其中含有大于各个2的幂的最小素数
+      this.primes = [
+        1, 1, 3, 7, 13, 31, 61, 127, 251, 509, 1021, 2039, 4093, 8191, 16381,
+        32749, 65521, 131071, 262139, 524287, 1048573, 2097143, 4194301,
+        8388593, 16777213, 33554393, 67108859, 134217689, 268435399,
+        536870909, 1073741789, 2147483647
+      ];
+      // lgM
+      this.lgM = (Math.log(this.M)/ Math.log(2));
+    }
+
+    hashCode(str) {
+      var h = 0,
+        off = 0;
+      var len = str.length;
+      for (var i = 0; i < len; i++) {
+        h = 31 * h + str.charCodeAt(off++);
+      }
+      var t = -2147483648 * 2;
+      while (h > 2147483647) {
+        h += t
+      }
+      return h;
+    }
+
+    // 计算key的散列值
+    hash(key) {
+      // return (this.hashCode(key) & 0x7fffffff) % this.M;
+      // 当能够动态调整数组大小时，散列表的大小总是2的幂，这不是个问题吗？这样hash()方法就只使用了hashCode()返回值的低位。
+      // 解决方法：先用一个大于M的素数来散列键值对
+
+      // 这段代码假设我们使用了一个变量lgM，它的值等于lgM（直接初始化为该值，并在将数组长度加倍或者减半时增大或者减小它），
+      // 以及一个数组primes[]，其中含有大于各个2的幂的最小素数
+
+      // 代码中的常数5是随意取的一个值——我们希望第一次取余操作（%）能够将所有值散列在小于该素数的范围之内，而第二次取余操作则将其中的5个值映射到小于M的所有值中。
+      // 请注意，对于很大的M这是没有意义的。
+      var t = this.hashCode(key) & 0x7fffffff;
+      if (this.lgM < 26) {
+        t = t % this.primes[this.lgM+5];
+      }
+      return t % this.M;
+    }
+
+    resize(cap) {
+      // 创建一个新的实例
+      t = new LinearProbingHashST(cap);
+      // 从头遍历两个数组
+      for (var i = 0; i < this.M; i++) {
+        // 找到所有不为空的键值，放入到t中
+        if (this.keys[i] != undefined) {
+          t.put(this.keys[i], this.values[i]);
+        }
+      }
+      // 将t的keys,vals,M赋值给此实例
+      this.keys = t.keys;
+      this.vals = t.vals;
+      this.M = t.M;
+    }
+
+    put(key, val) {
+      if (this.N >= (this.M / 2)) {
+        this.resize(2 * this.M); // 将M加倍
+        this.lgM++;
+      }
+      var i = 0;
+      // hash(key)得到的数组下标，如果keys数组不为空，相等，就更新值，不相等则继续往后插index+1，如果查到最后了还没找到，折回数组开头(i=(i+1)%this.M)找到一个空元素保存它。
+      for (i = this.hash(key); this.keys[i] != undefined; i = (i + 1) % this.M) {
+        if (this.keys[i] === key) {
+          // 找到了，就更新值
+          this.vals[i] = val;
+          return;
+        }
+      }
+      // 如果查找到的位置为空，则直接赋值
+      this.keys[i] = key;
+      this.vals[i] = val;
+      this.N++;
+    }
+
+    get(key) {
+      for (var i = this.hash(key); this.keys[i] != undefined; i = (i + 1) % this.M) {
+        if (this.keys[i] === key) {
+          return this.vals[i];
+        }
+      }
+      // 找不到
+      return null;
+    }
+
+    // 删除
+    // 如何从基于线性探测的散列表中删除一个键？仔细想一想，你会发现直接将该键所在的位置设为null是不行的，因为这会使得在此位置之后的元素无法被查找
+    // 因此，我们需要将簇中被删除键的右侧的所有键重新插入散列表
+    delete(key) {
+      // 不包含还删除个P
+      if (!this.contains(key)) return;
+      var i = this.hash(key);
+      // 找不到继续往后找
+      while(key != this.keys[i]) {
+        i = (i+1)%this.M;
+      }
+      // 找到后，删除元素
+      this.keys[i] = undefined;
+      this.vals[i] = undefined;
+      // 我们需要将簇(连续的键，因为这里面就包含了冲突)中被删除键的右侧的所有键重新插入散列表
+      // 从删除的元素的下一位开始，重新插入散列表
+      i = (i+1)%this.M;
+      while(this.keys[i] != undefined) {
+        // 保存要重新插入散列表的元素
+        var keyToRedo = this.keys[i];
+        var valToRedo = this.vals[i];
+        this.keys[i] = undefined;
+        this.vals[i] = undefined;
+        this.N--;
+        this.put(keyToRedo, valToRedo);
+        // 继续将i++
+        i = (i+1)%this.M;
+      }
+      // 删除元素后将N--
+      this.N--;
+      // 以保证所使用的内存量和表中的键值对数量的比例总在一定范围之内。动态调整数组大小可以为我们保证α不大于1/2。
+      if (this.N > 0 && this.N <= (this.M/8)) {
+        // 为了保证性能，我们会动态调整数组的大小来保证使用率在1/8到1/2之间
+        this.resize(this.M/2);
+        this.lgM--;
+      }
+    }
+
+    // 包含
+    contains(key) {
+      return this.get(key) != null;
+    }
+  }
+</script>
+
+</html>

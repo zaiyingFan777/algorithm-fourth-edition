@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+
+</body>
+<script>
+  // 5.5 数据压缩
+  // 压缩数据的原因主要有两点：节省保存信息所需的空间和节省传输信息所需的时间
+  // 注意：本书中，我们在提到性能的时候一般指的都是时间；而对于数据压缩，性能指代的是算法的压缩率，当然也会考虑压缩的用时
+  // 5.5.1 游戏规则
+  // 现代计算机系统中处理的所有类型的数据都有一个共同点：它们最终都是用二进制表示的。我们可以将它们都看成一串比特（或者字节）的序列
+  // 简单起见，本节中使用比特流这个术语表示比特的序列，用字节流这个术语表示可以看作固定大小的字节序列的比特序列
+
+  // 基础模型
+  // 数据压缩的基础模型非常简单（请见图5.5.1）。它由两个主要的部分组成，两者都是一个能够读写比特流的黑盒子：[插图]图5.5.1 数据压缩的基础模型
+  // ❏压缩盒，能够将一个比特流B转化为压缩后的版本C（B）；❏展开盒，能够将C（B）转化回B。
+
+  // 如果使用|B|表示比特流中比特的数量的话，我们感兴趣的是将|C（B）|/|B|最小化，这个值被称为压缩率。
+  // 这种模型叫做无损压缩模型——保证不丢失任何信息，即压缩和展开之后的比特流必须和原始的比特流完全相同
+
+  // 5.5.2 读写二进制数据
+  // BinaryStdIn和BinaryStdOut这两份API来自于我们一直在使用的StdIn和StdOut，但它们的作用是读取和写入比特，而StdIn和StdOut面向的是由Unicode编码的字符流。
+  // StdOut上的一个int值是一串字符（它的十进制表示）；BinaryStdOut上的一个int值是一串比特（它的二进制表示）。
+
+  // 5.5.2.1 二进制的输入输出
+  // 今天，大多数系统的输入输出系统，包括Java，都是基于8位的字节流，因此我们的API也应该读写字节流，以和原始数据类型内部表示的输入输出格式相匹配，将8位的char编码为1个字节，16位的short编码为2个字节，32位的int编码为4个字节，等等
+  // 表5.5.1中的API从标准输入中读取比特流。
+  // 表5.5.1 从标准输入读取比特流的静态方法的API
+  // public class BinaryStdIn
+  //      boolean readBoolean()           // 读取1位数据并返回一个boolean值
+  //         char readChar()              // 读取8位(一个字节)数据返回一个char值
+  //         char readChar(int r)         // 读取r(1-16)位数据并返回一个char值
+  //      boolean isEmpty()               // 比特流是否为空
+  //         void close()                 // 关闭比特流    
+  // 和StdIn明显不同的是，这份抽象API的一个关键特性在于标准输入中的数据并不一定是与字节边界对齐的。如果输入流只含有一个字节，用例可以一个比特一个比特地调用8次readBoolean()方法读取它
+  // 使用表5.5.2中的补充API来向标准输出写入比特流。表5.5.2 向标准输出中写入比特流的静态方法的API
+  // public class BinaryStdOut
+  //         void write(boolean b)      // 写入指定的比特
+  //         void write(char c)         // 写入指定的8位(一个字节)字符
+  //         void write(char c, int r)  // 写入指定字符的低r(1-16)位
+  //         void close()               // 关闭比特流
+  // 对于输出，close()方法就很重要了：用例必须使用close()方法保证之前调用write()方法处理的所有数据都写入比特流，比特流的最后一个字节必须用0补齐以保证和文件系统的兼容性
+  // 5.5.2.2 举例
+  // 以下是一个简单的示例，假设你用一个数据结构将日期表示为3个int值（月、日、年）。使用StdOut将这些值以12/31/1999的格式输出需要10个字符，也就是80位(一个字符/字节是八位)
+  //  (3个int)
+  // 如果用byte值来表示月和日，用short值表示年，输出将只有32位（月和日byte 一个八位两个16，一个short为16）
+  // 5.5.2.3 二进制转储
+  // 转储（dump）这个词从计算机的早期一直沿用下来，表示的是比特流的一种可供人类阅读的形式。BinaryStdIn可以避开对系统的依赖性，允许我们编写自己的程序来将比特流转化为标准工具能够处理的内容
+  // 5.5.2.4 ASCII编码
+
+  // 5.5.3 局限
+  // 5.5.3.1 通用数据压缩
+  // 命题S。不存在能够压缩任意比特流的算法。
+  // 5.5.3.2 不可判定性(每个0或1就是一个位(bit)，位是数据存储的最小单位。其中8bit就称为一个字节（Byte）)
+  // 这些局限性所带来的实际影响要求无损压缩算法必须尽量利用被压缩的数据流中的已知结构。我们将会依次讨论4种方法来处理具备以下结构特点的数据：
+  // ❏小规模的字母表；
+  // ❏较长的连续相同的位或字符；
+  // ❏频繁使用的字符；
+  // ❏较长的连续重复的位或字符。
+  // 5.5.4 热身运动：基因组
+  // 5.5.4.1 基因数据
+  // 5.5.4.2 双位编码压缩
+  // 5.5.4.3 双位编码展开
+  // 5.5.5 游程编码
+  // 比特流中最简单的冗余形式就是一长串重复的比特。下面我们学习一种经典的游程编码（Run-Length Encoding）来利用这种冗余压缩数据。
+  // 例如，请看下面这条40位长的字符串：[插图]该字符串含有15个0，然后是7个1，然后是7个0，然后是11个1，因此我们可以将该比特字符串编码为15,7,7,11。
+  // 所有的比特字符串都是由交替出现的0和1组成的，因此我们只需要将游程的长度编码即可
+  // 在这个例子中，如果用4位表示长度并以连续的0作为开头，那么就可以得到一个16位长的字符串（15=1111,7=0111,7=0111,11=1011）：1111 0111 0111 1011 (压缩率为16/40=40%)
+  // 5.5.5.1 位图
+  // 作为游程编码效果的一个示例，这里探讨位图。它被广泛用于保存图像和扫描文档。简单起见，我们将二进制位图数据组织为将像素按行排列的比特流
+  // 每行的右侧为该行的游程编码。因为每行的开始和结束都是0，所以每行的游程数量都是奇数。因为一行的结束之后就是另一行的开始，
+  // 所以比特流中相对应的游程的长度就是每一行的最后一个游程的长度和下一行的第一个游程的长度之和（全部为0的行则应该继续相加）。
+  // 5.5.5.2 实现
+  // 和以前一样，expand()的实现相对简单：读取一个游程的长度，将当前比特按照长度复制并打印，转换当前比特然后继续，直到输入结束。
+  // compress()方法也很简单。对于输入，它进行了以下操作：
+  // ❏读取一个比特；
+  // ❏如果它和上一个比特不同，写入当前的计数值并将计数器归零；
+  // ❏如果它和上一个比特相同且计数器已经到达最大值，则写入计数值，再写入一个0计数值，然后将计数器归零；
+  // ❏增加计数器的值。
+  // 当输入流结束时，写入计数值（最后一个游程的长度）并结束。
+  // 5.5.5.3 提高位图的分辨率
+  // 游程编码广泛用于位图的主要原因是，随着分辨率的提高它的效果也会大大的提高。证明这一点很简单。假设将上一个例子中的分辨率提高一倍，则很容易得到：
+  // ❏总比特数变为了原来的4倍；❏游程的数量变为约原来的2倍；❏游程的长度变为约原来的2倍；❏压缩后的比特数量变为约原来的2倍；❏因此，压缩率变成了原来的一半！
+
+  // 5.5.6 霍夫曼压缩
+  // 我们现在来学习一种能够大幅压缩自然语言文件空间（以及许多其他类型文件）的数据压缩技术。它的主要思想是放弃文本文件的普通保存方式：不再使用7位或8位二进制数表示每一个字符，
+  // 而是用较少的比特表示出现频率高的字符，用较多的比特表示出现频率低的字符。
+  // 为了说明这个概念，先来看一个简单的示例。假设需要将字符串A B R A C A D AB R A ！编码。由7位ASCII字符编码我们可以得到比特字符串：[插图]
+  // 要将这段比特字符串解码，只需每次读取7位并根据图5.5.4的ASCII编码表将它转换为字符。在这种标准的编码下，只出现了一次的D和出现了5次的A所需的比特数是一样的。
+  // !!!!霍夫曼压缩的思想是通过用较少的比特表示出现频繁的字符而用较多的比特表示偶尔出现的字符来节省空间，这样字符串所使用的总比特数就会降低。
+  // 5.5.6.1 变长前缀码
+  // 和每个字符所相关联的编码都是一个比特字符串，就好像有一个以字符为键、比特字符串为值的符号表一样。我们可以试着将最短的比特字符串赋予最常用的字符，将A编码为0、B编码为1、R为00、C为01、D为10、！为11。
+  // 这样A B R A C A DA B R A ！的编码就是0 1 00 0 01 0 10 0 1 00 0 11。这种表示方法只用了17位，而7位的ASCII编码则用了84位
+  // 但这种表示方法并不完整，因为它需要空格来区分字符。如果没有空格，比特字符串就会变成这个样子：[插图]
+  // 它也可以被解码为C R R D D C R C B或是其他字符串
+  // 如果所有字符编码都不会成为其他字符编码的前缀，那么就不需要分隔符了。下一步我们就要做到这一点。含有这种性质的编码规则叫做前缀码
+  // 如果我们将A编码为0、B为1111、C为110、D为100、R为1110、！为101，那么将以下长为30的比特字符串解码的方式就只有A B R A C A D A B R A ！一种了：[插图]所有的前缀码的解码方式都和它一样，是唯一的（不需要任何分隔符），因此前缀码被广泛应用于实际生产之中
+  // 注意，像7位ASCII编码这样的定长编码也是前缀码。
+
+  // 5.5.6.2 前缀码的单词查找树
+  // 表示前缀码的一种简便方法就是使用单词查找树
+  // 事实上，任意含有M个空链接的单词查找树都为M个字符定义了一种前缀码方法：我们将空链接替换为指向叶子结点（含有两个空链接的结点）的链接，每个叶子结点都含有一个需要编码的字符
+  // 这样，每个字符的编码就是从根结点到该结点的路径表示的比特字符串，其中左链接表示0，右链接表示1
+  // 5.5.6.3 概述
+  // 使用前缀码进行数据压缩需要经过5个主要步骤。我们将待编码的比特流看作一个字节流并按照以下方式使用前缀码：
+  // ❏构造一棵编码单词查找树；
+  // ❏将该树以字节流的形式写入输出以供展开时使用；
+  // ❏使用该树将字节流编码为比特流。
+  // 在展开时需要：
+  // ❏读取单词查找树（保存在比特流的开头）；
+  // ❏使用该树将比特流解码。
+  // 为了帮助你更好地理解和领会这个过程，我们将按照难度逐个考察这些步骤。
+  // 5.5.6.4 单词查找树的结点
+  // 每个Node对象都含有指向其他Node对象的left和right引用，这定义了单词查找树的结构。每个Node对象还包含一个实例变量freq，构造函数会用到它。另一个实例变量ch用于表示叶子结点中需要被编码的字符。
+
+  // 单词查找树的结点表示
+  // class Node {
+  //   // 霍夫曼单词查找树中的结点
+  //   // char ch, int freq, Node left, Node right
+  //   constructor(ch, freq, left, right) {
+  //     // 实例变量ch用于表示叶子结点中需要被编码的字符
+  //     this.ch = ch;      // 内部节点不会使用该变量
+  //     // 每个Node对象还包含一个实例变量freq，构造函数会用到它
+  //     this.freq = freq;  // 展开过程不会使用该遍历
+  //     this.left = left;
+  //     this.right = right;
+  //   }
+
+  //   // 是否是叶子节点
+  //   isLeaf() {
+  //     return this.left == null && this.right == null;
+  //   }
+
+  //   // 比较
+  //   compareTo(that) {
+  //     return this.freq - that.freq;
+  //   }
+  // }
+
+  // 5.5.6.5 使用前缀码展开
+  // 在从标准输入中使用后文所述的readTrie()方法读取了单词查找树之后，用它将比特流的其余部分展开：根据比特流的输入从根结点开始向下移动（读取一个比特，如果为0则移动到左子结点，如果为1则移动到右子结点）。当遇到叶子结点后，输出该结点的字符并重新回到根结点
+  // 。展开的简单性也是前缀码，特别是霍夫曼压缩算法流行的原因之一。
+  // function expand() {
+  //   // 读取单词查找树
+  //   var root = readTrie();
+  //   // 读取比特流
+  //   var N = BinaryStdIn.readInt();
+  //   for(var i = 0; i < N; i++) {
+  //     // 展开第i个编码所对应的字母
+  //     var x = root;
+  //     // 如果叶子节点不为空
+  //     while(!x.isLeaf()) {
+  //       // 如果叶子结点不为空则往下找
+  //       if (BinaryStdIn.readBoolean()) {
+  //         x = x.right;
+  //       } else {
+  //         x = x.left;
+  //       }
+  //     }
+  //     BinaryStdIn.write(x.ch);
+  //   }
+  //   BinaryStdIn.close();
+  // }
+  // 5.5.6.6 使用前缀码压缩
+  // 在压缩时，我们使用单词查找树定义的编码来构造编译表，如后面框注中的buildCode()方法所示
+  // 对于任意单词查找树，它都能产生一张将树中的字符和比特字符串（用由0和1组成的String字符串表示）相对应的编译表
+  // 编译表就是一张将每个字符和它的比特字符串相关联的符号表：为了提升效率，我们使用了一个由字符索引的数组st[]而非普通的符号表，因为字符的数量并不多
+  // 在构造该符号表时，buildCode()递归遍历整棵树并为每个结点维护了一条从根结点到它的路径所对应的二进制字符串（0表示左链接，1表示右链接）
+  // 每当到达一个叶子结点时，算法就将结点的编码设为该二进制字符串
+  // 框注中的这一段代码完成的任务是查找输入的每个字符所对应的编码String对象，将char数组中字符转化为0和1的值并写入输出的比特字符串中。
+
+
+  // 通过前缀码字典查找树构建编译表
+  function buildCode(root) {
+    // 使用单词查找树构造编译表
+    var st = new Array(R).fill('');
+    $$buildCode(st, root, "");
+    return st;
+  }
+
+  function $$buildCode(st, x, s) {
+    // 使用单词查找树构造编译表（递归）
+    if (x.isLeaf()) {
+      // 如果是叶子节点
+      st[x.ch] = s;
+      return;
+    }
+    // 构建左子树
+    $$buildCode(st, x.left, s + '0');
+    // 构建右子树
+    $$buildCode(st, x.right, s + '1');
+  }
+
+  // 使用编译表的压缩
+  // for(var i = 0; i < input.length; i++) {
+  //   var code = st[input[i]];
+  //   for(var j = 0; j < code.length; j++) {
+  //     if (code.charAt(j) == '1') {
+  //       BinaryStdOut.write(true);
+  //     } else {
+  //       BinaryStdOut.write(false);
+  //     }
+  //   }
+  // }
+
+  // 5.5.6.7 单词查找树的构造
+  // 我们将需要被编码的字符放在叶子结点中并在每个结点中维护了一个名为freq的实例变量来表示以它为根结点的子树中的所有字符出现的频率
+  // 构造的第一步是创建一片由许多只有一个结点（即叶子结点）的树所组成的森林
+  // 每棵树都表示输入流中的一个字符，每个结点中的freq变量的值都表示了它在输入流中的出现频率。
+  // 特别提示：为了得到这些频率，需要读取整个输入流——霍夫曼编码是一个两轮算法，因为需要再次读取输入流才能压缩它
+  // 接下来自底向上根据频率构造这棵编码的单词查找树。在构造时将它看作一棵结点中含有频率信息的二叉树
+  // 在构造后，我们才将它看作一棵用于编码的单词查找树。
+
+  // !!!!!构造过程如下：首先找到两个频率最小的结点，然后创建一个以二者为子结点的新结点（新结点的频率值为它的两个子结点的频率值之和）。这个操作会将森林中树的数量减一
+  // 然后不断重复这个过程，找到森林中的两棵频率最小的树并用相同的方式创建一个新的结点
+  // 用优先队列能够轻易实现这个过程，如右下框注的buildTrie方法所示
+  // 随着这个过程的继续，我们构造的单词查找树将越来越大，而森林中的树会越来越少（每一步都会删除两棵树，添加一棵新树）
+  // 最终，所有的结点会被合并为一棵单独的单词查找树
+  // 这棵树中的叶子结点为所有待编码的字符和它们在输入中出现的频率，每个非叶子结点中的频率值为它的两个子结点之和
+  // 频率较低的结点会被安排在树的底层，而高频率的结点则会被安排在根结点附近的地方。根结点的频率值等于输入中的字符数量
+
+  // 构造一棵霍夫曼编码单词查找树[插图]
+  // 每个结点中的freq变量的值都表示了它在输入流中的出现频率。
+  function buildTrie(freq) {
+    // 使用多颗单结点树初始化优先队列
+    var pq = new MinPQ();
+    for (var c = 0; c < R; c++) {
+      if (freq[c] > 0) {
+        // 插入优先队列
+        pq.insert(new Node(c, freq[c], null, null));
+      }
+    }
+    // 所有的结点会被合并为一棵单独的单词查找树
+    while (pq.size() > 1) {
+      // 合并两颗频率最小的树
+      var x = pq.delMin();
+      var y = pq.delMin();
+      var parent = new Node('\0', x.freq + y.freq, x, y);
+      // 将合并完的树继续插入到优先队列里。
+      pq.insert(parent);
+    }
+    // 然后从优先队列取出最后一棵树
+    return pq.delMin();
+  }
+
+  // 5.5.6.8 最优性
+  // 我们已经看到，在树中高频率的字符比低频率的字符离根结点更近，因此编码所需的比特更少，所以这种编码的方式更好
+  // 但为什么这是一种最优的前缀码呢？要回答这个问题，首先要定义树的加权外部路径长度这个概念，它是所有叶子结点的权重（频率）和深度（请见1.5.2.5节）之积的和。
+  // 命题T。对于任意前缀码，编码后的比特字符串的长度等于相应单词查找树的加权外部路径长度。
+  // 证明。每个叶子结点的深度就是将该叶子结点的字符编码所需的比特数。因此，加权外部路径长度就是编码后的比特字符串的长度：它等于所有字符的出现次数和字符的编码长度之积的和。
+
+  // 命题U。给定一个含有r个符号的集合和它们的频率，霍夫曼算法所构造的前缀码是最优的。
+  // 5.5.6.9 写入和读取单词查找树
+  // 所以，我们必须将输出比特字符串中的单词查找树的成本考虑进来。对于较长的输入，这个成本相对较小。但为了保证数据压缩流程的完整，必须在压缩时将树写入比特流并在展开时读取它。
+  // 怎样才能将一棵单词查找树编码为比特流并展开它呢？其实，只要基于单词查找树的前序遍历，这两个任务都只需要很简单的递归即可完成
+
+  // 下面框注中的writeTrie()方法会按照前序遍历单词查找树：当它访问的是一个内部结点时，它会写入一个比特0；
+  // 当它访问的是一个叶子结点时，它会写入一个比特1，紧接着是该叶子结点中字符的8位ASCII编码
+  // 先序遍历(Pre-order)，按照根左右的顺序沿一定路径经过路径上所有的结点。在二叉树中，先根后左再右。巧记：根左右。
+  // ps：二叉树的前序、中序、后序遍历是相对于遍历根节点的顺序命名的
+  // 前序遍历：先中后左右
+  // 中序遍历：先左后中再右
+  // 后序遍历：先左右后中
+
+  // 将单词查找树写为比特字符串
+  // 当访问的是一个内部结点时，他会写入一个比特0，当它访问的是一个叶子节点时，他会写入一个比特1，紧接着是该叶子节点中字符的8位ASCII编码
+  function writeTrie(x) {
+    // 输出单词查找树的比特字符串
+    if (x.isLeaf()) {
+      // 当它访问的是一个叶子节点时，他会写入一个比特1，紧接着是该叶子节点中字符的8位ASCII编码
+      BinaryStdOut.write(true);
+      BinaryStdOut.write(x.ch);
+      return;
+    }
+    // 当访问的是一个内部节点，他会写入一个比特0
+    BinaryStdOut.write(false);
+    // 先序遍历
+    writeTrie(x.left);
+    writeTrie(x.right);
+  }
+
+  // 相应的readTrie()如框注所示。它从比特字符串中重新构造了单词查找树：首先读取一个比特以得到当前结点的类型，如果是叶子结点（比特为1）那么就读取字符的编码并创建一个叶子结点；
+  // 如果是内部结点（比特为0）那么就创建一个内部结点并（递归地）继续构造它的左右子树。请一定要理解这些方法：它们的简洁性有时是有欺骗性的
+
+  // 从比特流的前序表示中重建单词查找树
+  function readTrie() {
+    // 首先读取一个比特以得到当前结点的类型
+    if (BinaryStdIn.readBoolean()) {
+      // 如果是叶子节点（比特为1）那么就读取字符的编码并创建一个叶子结点
+      return new Node(BinaryStdIn.readChar(), 0, null, null);
+    }
+    // 如果是内部节点（比特位0）那么就创建一个内部结点并（递归地）继续构造他的左右子树
+    return new Node('\0', 0, readTrie(), readTrie());
+  }
+
+  // 5.5.6.10 霍夫曼压缩的实现
+  // 算法5.10加上之前讨论过的buildCode()、buildTrie()、readTrie()和writeTrie()（以及一开始展示的expand()方法），就是霍夫曼压缩算法的完整实现
+  // 为了展开前文对算法的概述，我们将需要压缩的比特流看作8位编码的Char值流并将它按照如下方法压缩：
+  // ❏读取输入；
+  // ❏将输入中的每个char值的出现频率制成表格；
+  // ❏根据频率构造相应的霍夫曼编码树；
+  // ❏构造编译表，将输入中的每个char值和一个比特字符串相关联；
+  // ❏将单词查找树编码为比特字符串并写入输出流；
+  // ❏将单词总数编码为比特字符串并写入输出流；
+  // ❏使用编译表翻译每个输入字符。
+
+  // 要展开一条编码过的比特流，步骤如下：
+  // ❏读取单词查找树（编码在比特流的开头）；
+  // ❏读取需要解码的字符数量；
+  // ❏使用单词查找树将比特流解码。
+
+  // 霍夫曼压缩算法含有4个递归方法处理单词查找树，整个压缩过程需要7步，是我们学习的较为复杂的算法之一
+
+  // 算法5.10霍夫曼压缩
+  // 最小优先队列
+  class MinPQ {
+    constructor(maxN) {
+      // 基于堆的完全二叉树的数组，maxN为二叉树中结点的个数，所以我们创建数组为maxN+1，第0位元素不用，N个结点对应的下标为1，2，3...N，
+      this.pq = new Array(maxN + 1).fill(null); // 基于堆的完全二叉树
+      this.N = 0; // 存储于pq[1..N]，pq[0]没有使用
+    }
+
+    // 交换位置
+    exch(i, j) {
+      var temp = this.pq[i];
+      this.pq[i] = this.pq[j];
+      this.pq[j] = temp;
+    }
+
+    // 上浮
+    swim(k) {
+      // 轮询条件为：k > 1就是k还没有达到顶部元素以及a[k]小于父节点a[k/2]
+      while (k > 1 && this.pq[Math.floor(k / 2)].freq > this.pq[k].freq) {
+        // 调换位置
+        this.exch(Math.floor(k / 2), k);
+        // 更新k的值
+        k = Math.floor(k / 2);
+      }
+    }
+
+    // 下沉
+    sink(k) {
+      while (2 * k <= this.N) {
+        // 找到子节点
+        var j = 2 * k;
+        // 左子节点不是最后一个元素，并且左子节点小于右子节点
+        // 如果左子节点大于右子节点，那就让a[k]与右子节点去比较（找到两个子节点中左右最小的结点）
+        if (j < this.N && (this.pq[j].freq > this.pq[j + 1].freq)) {
+          j++;
+        }
+        // 判断k和j，如果a[k] < a[j]那就终止循环，因为a[k]比他的子节点小了
+        if (this.pq[k].freq < this.pq[j].freq) break;
+        // 交换元素
+        this.exch(k, j);
+        // 对k重新赋值
+        k = j;
+      }
+    }
+
+    isEmpty() {
+      return this.N === 0;
+    }
+
+    size() {
+      return this.N;
+    }
+
+    // 插入
+    insert(v) {
+      // 从第一个插入
+      // this.N++，从最后一个往上游
+      this.pq[++this.N] = v;
+      this.swim(this.N);
+    }
+
+    // 删除最小值
+    delMin() {
+      var min = this.pq[1]; // 从根节点得到最小元素
+      // 调换位置：1和this.N，最后N--
+      // 调换位置：
+      // 先调换位置(1和N)再将this.N - 1;
+      this.exch(1, this.N--);
+      // 将数组最后一个置为null，意思就是删除
+      this.pq[this.N + 1] = null; // 防止对象游离
+      // 恢复堆的有序性
+      this.sink(1);
+      return min;
+    }
+  }
+  // 单词查找树的结点表示
+  class Node {
+    // 霍夫曼单词查找树中的结点
+    // char ch, int freq, Node left, Node right
+    // ch: unicode值，freq：频率，left：左子树，right：右子树
+    constructor(ch, freq, left, right) {
+      // 实例变量ch用于表示叶子结点中需要被编码的字符
+      this.ch = ch; // 内部节点不会使用该变量
+      // 每个Node对象还包含一个实例变量freq，构造函数会用到它
+      this.freq = freq; // 展开过程不会使用该遍历
+      this.left = left;
+      this.right = right;
+    }
+
+    // 是否是叶子节点
+    isLeaf() {
+      return this.left == null && this.right == null;
+    }
+
+    // 比较
+    compareTo(that) {
+      return this.freq - that.freq;
+    }
+  }
+
+  class Huffman {
+    constructor(input) {
+      // ASCII字母表
+      this.R = 256;
+      this.input = input;
+      this.output = "";
+      this.expandOutput = "";
+      // 用于展开时重新构建霍夫曼单词查找树
+      this.i = 0;
+    }
+
+    // 二进制转为unicode字符串
+    binaryToStr(str) {
+      var result = [];
+      var list = str.split(" ");
+      for (var i = 0; i < list.length; i++) {
+        var item = list[i];
+        var asciiCode = parseInt(item, 2);
+        var charValue = String.fromCharCode(asciiCode);
+        result.push(charValue);
+      }
+      return result.join("");
+    }
+
+    // 转32位  
+    numberToBinary(num) {
+      if (num < 0) {
+        return num;
+      }
+      // 整数类型的位数
+      var number_bit = 32;
+      var result = '';
+      for (var i = number_bit - 1; i >= 0; i--) {
+        // 让 1 左移的位数
+        var mask = 1 << i;
+        if ((mask & num) == 0) {
+          result += '0';
+        } else {
+          result += '1';
+        }
+      }
+
+      return result;
+    }
+
+    // 转8位
+    numberToBinary8(num) {
+      if (num < 0) {
+        return num;
+      }
+      // 整数类型的位数
+      var number_bit = 8;
+      var result = '';
+      for (var i = number_bit - 1; i >= 0; i--) {
+        // 让 1 左移的位数
+        var mask = 1 << i;
+        if ((mask & num) == 0) {
+          result += '0';
+        } else {
+          result += '1';
+        }
+      }
+      return result;
+    }
+
+    // 通过前缀码字典查找树构建编译表
+    buildCode(root) {
+      // 使用单词查找树构造编译表
+      var st = new Array(this.R).fill('');
+      this.$$buildCode(st, root, "");
+      return st;
+    }
+
+    // 前序遍历二叉树，根左右
+    $$buildCode(st, x, s) {
+      // 使用单词查找树构造编译表（递归）
+      if (x.isLeaf()) {
+        // 如果是叶子节点
+        st[x.ch] = s;
+        return;
+      }
+      // 构建左子树
+      this.$$buildCode(st, x.left, s + '0');
+      // 构建右子树
+      this.$$buildCode(st, x.right, s + '1');
+    }
+
+    // 构造一棵霍夫曼编码单词查找树
+    // 每个结点中的freq变量的值都表示了它在输入流中的出现频率。
+    buildTrie(freq, len) {
+      // 使用多颗单结点树初始化优先队列
+      var pq = new MinPQ(len);
+      for (var c = 0; c < this.R; c++) {
+        // 如果某个字符的unicode值出现得频率大于0，插入优先队列
+        if (freq[c] > 0) {
+          // console.log(c, freq[c], '3.构造霍夫曼编码树')
+          // 插入优先队列
+          pq.insert(new Node(c, freq[c], null, null));
+        }
+      }
+      // 所有的结点会被合并为一棵单独的单词查找树
+      while (pq.size() > 1) {
+        // 合并两颗频率最小的树
+        var x = pq.delMin();
+        var y = pq.delMin();
+        var parent = new Node('0', x.freq + y.freq, x, y); // \0
+        // 将合并完的树继续插入到优先队列里。
+        pq.insert(parent);
+      }
+      // 然后从优先队列取出最后一棵树
+      return pq.delMin();
+    }
+
+    // 采用前序遍历
+    // 将单词查找树写为比特字符串
+    writeTrie(x) {
+      // 输出单词查找树的比特字符串
+      if (x.isLeaf()) {
+        // 当它访问的是一个叶子节点时，他会写入一个比特1，紧接着是该叶子节点中字符的8位ASCII编码
+        this.output += '1';
+        this.output += this.numberToBinary8(x.ch);
+        return;
+      }
+      // 当访问的是一个内部节点，他会写入一个比特0
+      this.output += '0';
+      // 先序遍历
+      this.writeTrie(x.left);
+      this.writeTrie(x.right);
+    }
+
+    // function readTrie() {
+    //   // 首先读取一个比特以得到当前结点的类型
+    //   if (BinaryStdIn.readBoolean()) {
+    //     // 如果是叶子节点（比特为1）那么就读取字符的编码并创建一个叶子结点
+    //     return new Node(BinaryStdIn.readChar(), 0, null, null);
+    //   }
+    //   // 如果是内部节点（比特位0）那么就创建一个内部结点并（递归地）继续构造他的左右子树
+    //   return new Node('\0', 0, readTrie(), readTrie());
+    // }
+
+    // 从比特流的前序表示中重建单词查找树
+    readTrie() {
+      let root = null;
+      root = this.$$readTrie(root);
+      return root;
+    }
+
+    // 通过先序遍历，递归的形式从压缩后的二进制流中创建一颗霍夫曼查找树
+    // 001011000101011001000101100011101100001  1111001001
+    // 然后像二进制流后面的每个元素对应的编译表的1111001001是不会递归进去的（因为先序遍历的缘故）。
+    $$readTrie(x) {
+      // console.log(this.i)
+      // if (this.i >= this.output.length) {
+      //   return null;
+      // }
+      if (this.output[this.i] == '1') {
+        this.i++;
+        // unicode => 字符 String.fromCharCode(97) => 'a'
+        // 这里先将二进制转为字符串然后再转为unicode值
+        return new Node(this.binaryToStr(this.output.slice(this.i, this.i += 8)).charCodeAt(0), 0, null, null);
+      } else {
+        // 移动i
+        this.i++;
+        // 如果是内部节点（比特位0）那么就创建一个内部结点并（递归地）继续构造他的左右子树
+        return new Node('0', 0, this.$$readTrie(x), this.$$readTrie(x));
+      }
+    }
+
+    // 压缩
+    compress() {
+      // 1.读取输入
+      let s = this.input;
+      // 将字符串转为字符数组
+      let input = s.split('');
+      console.log(input);
+      // 2.统计频率
+      // 将输入中的每个char值的出现频率制成表格；
+      let freq = new Array(this.R).fill(0);
+      for (let i = 0; i < input.length; i++) {
+        // freq[input[i]]++;
+        freq[input[i].charCodeAt(0)]++;
+      }
+      console.log(freq)
+      // 3.根据频率构造相应的霍夫曼编码树；
+      // 为了统计MinPQ的count
+      let count = 0;
+      for (let i = 0; i < freq.length; i++) {
+        if (freq[i] != 0) {
+          count++;
+        }
+      }
+      console.log(count)
+      // 构造编码树出现频率高的会在上面也就是比较短的字符，用的少的比较长放到树的下面
+      let root = this.buildTrie(freq, count);
+      console.log(root, '3.构造霍夫曼编码树')
+      // 4.(递归地)构造编译表
+      // 构造编译表，将输入中的每个char值和一个比特字符串相关联；
+      let st = new Array(this.R).fill("");
+      // 这里st就是每个char对应的acssii码值在256长度数组对应的下标，而下标对应的值就是霍夫曼编码
+      this.$$buildCode(st, root, "");
+      console.log(st, '4.构造编译表')
+      // 5.将单词查找树编码为比特字符串并写入输出流；
+      // 将单词查找树写为比特字符串
+      // 递归地打印解码用的单词查找树
+      this.writeTrie(root);
+      console.log(this.output, '5.将单词查找树编码为比特字符串并写入输出流')
+      // 6.打印字符总数
+      // 将单词总数编码为比特字符串并写入输出流；
+      console.log(input.length, '6.打印字符总数')
+      // 7.使用霍夫曼编码处理输入
+      // 使用编译表翻译每个输入字符。
+      for (let i = 0; i < input.length; i++) {
+        // let code = st[input[i]];
+        let code = st[input[i].charCodeAt(0)];
+        // 根据每个字符的unicode或者acssii在st(编译表中对应的值)
+        for (let j = 0; j < code.length; j++) {
+          if (code.charAt(j) == '1') {
+            this.output += '1';
+          } else {
+            this.output += '0';
+          }
+        }
+      }
+      console.log('7.使用编译表翻译每个输入字符。', this.output)
+    }
+
+    // 使用前缀码展开
+    // 要展开一条编码过的比特流，步骤如下：
+    // ❏读取单词查找树（编码在比特流的开头）；
+    // ❏读取需要解码的字符数量；
+    // ❏使用单词查找树将比特流解码。
+    expand() {
+      // 读取单词查找树
+      // 根据二进制流的前半段进行构造单词查找树，然后根据后半段去单词查找树查找
+      let root = this.readTrie();
+      console.log(root)
+      // 读取比特流
+      let N = this.output.length;
+      while (this.i < this.output.length) {
+        // 展开第i个编码所对应的字母
+        let x = root;
+        // 如果叶子节点不为空
+        while (!x.isLeaf()) {
+          // 如果叶子结点不为空则往下找
+          // 左边是0，右边是1 BinaryStdIn.readBoolean()为true的话就是1否则为0
+          if (this.output[this.i] == '1') {
+            x = x.right;
+          } else {
+            x = x.left;
+          }
+          this.i++;
+        }
+        // console.log(x.ch)
+        this.expandOutput += String.fromCharCode(x.ch);
+      }
+    }
+  }
+  console.log('------------------------------------------------------');
+  console.log('霍夫曼编码')
+  var huffman = new Huffman('aabcdaaabbb');
+  // var huffman = new Huffman('aabcd');
+  huffman.compress();
+  huffman.expand();
+  console.log(huffman);
+  console.log('------------------------------------------------------');
+
+
+  // 5.5.6.11 LZW压缩算法
+  // 这种算法的基本思想和霍夫曼编码的基本思想相反。霍夫曼算法是为输入中的定长模式产生一张变长的编码编译表，但这种方法是为输入中的变长模式生成一张定长的编码编译表。
+  // 这种方法的另一种令人惊讶的特性在于，和霍夫曼编码不同，输出中不需要附上这张编译表。
+
+  // 假设需要读取一列由7位ASCII编码的字符组成的输入流并将它们写为一条8位字节的输出流。我们将输入字节称为字符，输入的字节序列称为字符串，输出字节称为编码，尽管这些术语在其他情况下的意义有所不同
+  // LZW压缩算法的基础是维护一张字符串键和（定长）编码的编译表。在符号表中将128个单字符键的值初始化为8位编码，即在每个字符的7位值前添加一个0。
+  // 为了简单明了，用十六进制数字来表示编码的值，这样ASCII的A的编码即为41, R的编码为52。
+  // 我们将80保留为文件结束的标志并将其余的编码值（81～FF）分配给在输入中遇到的各种子字符串，即从81开始不断为新键赋予更大的编码值。为了压缩数据，只要输入还未结束，就会不断进行以下操作：
+  // ❏找出未处理的输入在符号表中最长的前缀字符串s；
+  // ❏输出s的8位值（编码）；
+  // ❏继续扫描s之后的一个字符c；
+  // ❏在符号表中将s+c（连接s和c）的值设为下一个编码值。
+  // 在后面的几步中，我们需要继续查看输入中的下一个字符才能构造字典中的下一个条目，因此将这个字符c称为前瞻（lookahead）字符
+
+  // !!!!!!!!!!JS将字符串转为16进制
+  // 1、字符串转换UTF8字节
+  function strToUtf8Bytes(str) {
+    const utf8 = [];
+    for (let ii = 0; ii < str.length; ii++) {
+      let charCode = str.charCodeAt(ii);
+      if (charCode < 0x80) utf8.push(charCode);
+      else if (charCode < 0x800) {
+        utf8.push(0xc0 | (charCode >> 6), 0x80 | (charCode & 0x3f));
+      } else if (charCode < 0xd800 || charCode >= 0xe000) {
+        utf8.push(0xe0 | (charCode >> 12), 0x80 | ((charCode >> 6) & 0x3f), 0x80 | (charCode & 0x3f));
+      } else {
+        ii++;
+        charCode = 0x10000 + (((charCode & 0x3ff) << 10) | (str.charCodeAt(ii) & 0x3ff));
+        utf8.push(
+          0xf0 | (charCode >> 18),
+          0x80 | ((charCode >> 12) & 0x3f),
+          0x80 | ((charCode >> 6) & 0x3f),
+          0x80 | (charCode & 0x3f),
+        );
+      }
+    }
+    //兼容汉字，ASCII码表最大的值为127，大于127的值为特殊字符
+    for (let jj = 0; jj < utf8.length; jj++) {
+      var code = utf8[jj];
+      if (code > 127) {
+        utf8[jj] = code - 256;
+      }
+    }
+    return utf8;
+  }
+  // 2、根据返回字节码进行16进制转换
+  function strToHexCharCode(str) {
+    var hexCharCode = [];
+    var chars = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F"];
+    for (var i = 0; i < str.length; i++) {
+      var bit = (str[i] & 0x0f0) >> 4;
+      hexCharCode.push(chars[bit]);
+      var bit = str[i] & 0x0f;
+      hexCharCode.push(chars[bit]);
+    }
+    return hexCharCode.join("");
+  }
+  console.log('字符串转16进制', strToHexCharCode(strToUtf8Bytes("A"))); // 41
+  console.log('字符串转16进制', strToHexCharCode(strToUtf8Bytes("B"))); // 42
+  console.log('字符串转16进制', strToHexCharCode(strToUtf8Bytes("R"))); // 52
+  console.log('字符串转16进制', strToHexCharCode(strToUtf8Bytes("Z"))); // 5A
+  console.log('字符串转16进制', strToHexCharCode(strToUtf8Bytes("0"))); // 30
+
+  // 5.5.6.12 LZW压缩举例
+  // 下表所示的是LZW算法压缩样例输入A B R A C A D A B R A B R A B R A的详细过程。对于前7个字符，匹配的最长前缀仅为1个字符，因此输出这些字符所对应的编码，并将编码81到87和产生的7个两个字符的字符串相关联
+  // 然后我们发现AB匹配了输入的前缀（于是输出81并将ABR添加到符号表中），然后是RA（输出83并添加RAB）, BR（输出82并添加BRA）和ABR（输出88并添加ABRA），最后只剩下A
+
+  // 5.5.6.13 LZW的单词查找树
+  // LZW压缩算法含有两种符号表操作：
+  // ❏找到输入和符号表的所有键的最长前缀匹配；
+  // ❏将匹配的键和前瞻字符相连得到一个新键，将新键和下一个编码关联并添加到符号表中。
+
+  // 要查找最长前缀匹配，从根结点开始遍历树，按照结点的标签和输入字符匹配
+  // 在添加一个新编码时，先创建一个用新编码和前瞻字符标记的结点并将它和查找结束的结点相关联
+  // 值得一提的是这里对单词查找树的使用与霍夫曼编码的不同：对于霍夫曼编码，使用单词查找树是因为任意编码都不会是其他编码的前缀；但对于LZW算法，使用单词查找树是因为每个由输入字符串得到的键的前缀也都是符号表中的一个键。
+
+  // 5.5.6.14 LZW压缩的展开
+  // LZW压缩的展开所需的输入是一系列8位编码，而输出则是一个7位ASCII字符组成的字符串
+  // 在展开时，我们会维护一张关联字符串和编码值的符号表（这张表的逆表是压缩时所用的符号表）
+  // 在这张表中加入00到7F和所有单个ASCII字符的字符串的关联条目，将第一个未关联的编码值设为81（80保留为文件结尾的标记），将保存了当前字符串的变量val设为含有第一个字符的字符串，在遇到编码80（文件结束）之前不断进行以下操作：
+  // ❏输出当前字符串val；
+  // ❏从输入中读取一个编码x；
+  // ❏在符号表中将s设为和x相关联的值；
+  // ❏在符号表中将下一个未分配的编码值设为val+c，其中c为s的首字母；
+  // ❏将当前字符串val设为s。
+
+  // 这个过程比压缩更加复杂，原因来自于前瞻字符：需要读取下一个编码来得到和它相关联的字符串的首字母，这使得整个过程不同步
+  // 对于前7个编码，只需要在符号表中查找并输出相应的字符，然后多读取一个字符并在符号表中添加一个两个字符的字符串的条目。这和之前是相同的
+  // 然后读到81（输出AB并向符号表中添加ABR），然后是83（输出RA并添加RAB）,82（输出BR并添加BRA）,88（输出ABR并添加ABRA），然后只剩下41。最终会遇到文件结束的标记80（因此输出A）
+  // 这个过程结束后，就已经如期写出了原始的输入，并且构造了一张和压缩时相同的符号表。
+
+
+  // 算法5.11 LZW算法的压缩
+  // 三向单词查找树
+  class TstNode {
+    constructor() {
+      // 字符
+      this.c = null;
+      // 左中右子三向单词查找树
+      this.left = null;
+      this.mid = null;
+      this.right = null;
+      // 和字符串相关联得值
+      this.val = null;
+    }
+  }
+  class TST {
+    constructor() {
+      // 树的根节点
+      this.root = null;
+    }
+
+    // get(String key)
+    get(key) {
+      if (key == null) {
+        console.error("Key cannot be null");
+        return;
+      }
+      if (key.length == 0) {
+        console.error("Key must have a positive length");
+        return;
+      }
+      // 通过$$get方法找到要找的node x
+      var x = this.$$get(this.root, key, 0);
+      if (x == null) return null;
+      return x.val;
+    }
+
+    // Node x，String key，int d
+    // 在查找时，我们首先比较键的首字母和根结点的字母。如果键的首字母较小，就选择左链接；如果较大，就选择右链接；如果相等，则选择中链接。
+    // 然后，递归地使用相同的算法。如果遇到了一个空链接或者当键结束时结点的值为空，那么查找未命中；如果键结束时结点的值非空则查找命中
+    $$get(x, key, d) {
+      // 没找到，返回Null
+      if (x == null) return null;
+      // 找到key中第d个字符的unicode值
+      var c = key.charCodeAt(d);
+      if (c < x.c) {
+        // 要查找的小于根的字母，选择左连接
+        return this.$$get(x.left, key, d);
+      } else if (c > x.c) {
+        // 要查找的大于根的字母，选择右连接
+        return this.$$get(x.right, key, d);
+      } else if (d < key.length - 1) {
+        // 相等选择中链接
+        return this.$$get(x.mid, key, d + 1);
+      } else {
+        // 找到了要找的键，返回
+        return x;
+      }
+    }
+
+    // 在插入一个新键时，首先进行查找，然后和在单词查找树一样，在树中补全键末尾的所有结点
+    put(key, val) {
+      this.root = this.$$put(this.root, key, val, 0);
+    }
+
+    $$put(x, key, val, d) {
+      // 找到key中第d个字符的unicode值
+      var c = key.charCodeAt(d);
+      if (x == null) {
+        // 如果为空
+        x = new TstNode();
+        // 赋值字符
+        x.c = c;
+      }
+      if (c < x.c) {
+        // 小于，找左链接
+        x.left = this.$$put(x.left, key, val, d);
+      } else if (c > x.c) {
+        // 大于，找右链接
+        x.right = this.$$put(x.right, key, val, d);
+      } else if (d < key.length - 1) {
+        // 等于
+        x.mid = this.$$put(x.mid, key, val, d + 1);
+      } else {
+        // 找到了就赋值
+        x.val = val;
+      }
+      return x;
+    }
+
+    // 给定字符的最长前缀
+    longestPrefixOf(s) {
+      if (s.length == 0) {
+        return null;
+      }
+      var length = this.search(this.root, s, 0, 0);
+      if (length == 0) return null;
+      return s.substring(0, length);
+    }
+
+    // search
+    // Node x, String s, int d, int length
+    search(x, s, d, length) {
+      if (x == null) return length;
+      // 下一个字符
+      var nextChar = s.charCodeAt(d);
+      if (x.val != null) {
+        if (nextChar == x.c) {
+          length = d + 1;
+        } else {
+          length = d;
+        }
+      };
+      if (nextChar < x.c) {
+        // 小于找左子树
+        return this.search(x.left, s, d, length);
+      } else if (nextChar > x.c) {
+        // 大于查右子树
+        return this.search(x.right, s, d, length);
+      } else if (d < s.length - 1) {
+        // 等于找中间
+        return this.search(x.mid, s, d + 1, length);
+      } else {
+        // 找到了返回length
+        return length;
+      }
+    }
+  }
+  var tst3 = new TST();
+  console.log(tst3)
+  tst3.put('A', 1);
+  tst3.put('AB', 2);
+  console.log(tst3.get('A'))
+  console.log(tst3.longestPrefixOf('ACADABRABRABRA'))
+  console.log(tst3.longestPrefixOf('AB'))
+  console.log(tst3.longestPrefixOf('BD'))
+  console.log(tst3.longestPrefixOf(''))
+
+  // tst3.put('sea', 2);
+  // tst3.put('by', 4);
+  // tst3.put('sells', 1);
+  // tst3.put('she', 0);
+  // tst3.put('shells', 3);
+  // tst3.put('the', 5);
+  // tst3.put('a', 6);
+  // console.log(tst3.get('by'))
+  // console.log(tst3.get('sea'))
+  // console.log(tst3.longestPrefixOf('byyy'))
+  // console.log(tst3.longestPrefixOf('c'))
+  // // tst3.put('by', 0);
+  // // tst3.put('be', 2);
+  // // console.log(tst3.get('be'))
+  // // console.log(tst3.longestPrefixOf('bee'))
+  // // console.log(tst3.longestPrefixOf('byy'))
+  // console.log(tst3)
+
+  class LZW {
+    constructor(input) {
+      // 输入字符数
+      this.R = 256;
+      // 编码总数=2^12
+      this.L = 4096
+      // 编码宽度
+      this.W = 12;
+      // 保存输入，代替读取流的操作
+      this.input = input;
+      // 输出
+      this.output = "";
+      // 压缩输出
+      this.expandOutput = "";
+    }
+
+    // 压缩
+    // 步骤
+    // 1.找出未处理的输入在符号表中的最长的前缀字符串s
+    // 2.输出s的8位值（编码）
+    // 3.继续扫描s之后的一个字符
+    // 4.在符号表中将s+c(连接s和c)的值设为下一个编码值。
+    // LZW压缩算法含有两种符号表操作：
+    // 1.找到输入和符号表的所有键的最长前缀匹配
+    // 2.将匹配的键和前瞻字符相连得到了一个新键，将新键和下一个编码关联并添加到符号表。
+    compress() {
+      // 这里采用指针扫描字符串
+      let ii = 0;
+      // 拿到输入值
+      let input = this.input;
+      console.log(input, '压缩输入值')
+      // 建立三向单词查找树
+      let st = new TST();
+      // 遍历所有的ascii
+      for (let i = 0; i < this.R; i++) {
+        // console.log(String.fromCharCode(i))
+        // 将ascii的字符，以及对应的i存放到st里面
+        // 拿65做例子，st.put("A", 65)
+        // 存到我们st 然后又将A变为了65存了进去
+        st.put(String.fromCharCode(i), i);
+      }
+      // console.log(st, '构建st', st.longestPrefixOf('ABBB'), st.get('A'))
+      let code = this.R + 1; // R为文件结束（EOF）的编码
+      // 当ii等于输入的长度就越界了
+      while (ii < input.length) {
+        // 找到匹配的最长前缀
+        // 比如ABRACADABRABRABRA，第一次通过匹配的最长前缀为A，因此输出A，然后A就是s，前瞻字符就是下一个B，然后AB添加一个新值放到字符串查找树里，以此类推
+        let s = st.longestPrefixOf(input);
+        // 打印输出  拿到unicode值
+        // 这里搞个逗号纯粹是向他们那样解压缩的时候可以一次取12位，这里按照,分割
+        this.output = this.output + st.get(s) + ",";
+        // s的长度
+        let t = s.length;
+        // 将s加入符号表
+        if (t < input.length && code < this.L) {
+          // ABRACADABRABRABRA
+          // 比如第一次匹配的最长前缀为A，然后A的长度t为1，将AB因为B是s的前瞻字符，这样将AB以257(然后code弄完为258)（Ascii 256个然后256是结束EOF）开始往下加
+          st.put(input.substring(0, t + 1), code++);
+        }
+        // 从输入中读取s
+        input = input.substring(t);
+      }
+      // 写入文件结束表记
+      this.output += this.R;
+    }
+
+    // 展开
+    // 在展开时，我们会维护一张关联字符串和编码值的符号表（这张表的逆表是压缩时所用的符号表）
+    // 1.❏输出当前字符串val；
+    // 2.❏从输入中读取一个编码x；
+    // 3.❏在符号表中将s设为和x相关联的值；
+    // 4.❏在符号表中将下一个未分配的编码值设为val+c，其中c为s的首字母；
+    // 5.❏将当前字符串val设为s。
+    expand() {
+      let st = new Array(this.L).fill("");
+      // 下一个待补全的编码值
+      let i;
+      // 用字符初始化编译表
+      for (i = 0; i < this.R; i++) {
+        st[i] = String.fromCharCode(i);
+      }
+      // 未使用  文件结束标记（EOF）的前瞻字符串
+      st[i++] = 'Ā';
+
+      // 拿到输出流
+      let output = this.output.split(",");
+      console.log(output, '输出数组')
+      // 维护指针j
+      let j = 0;
+      // 拿到符号比如第一个是A
+      // codeword: 65
+      let codeword = output[j++];
+      // val: A
+      let val = st[codeword];
+      while (true) {
+        // 输出当前字符串
+        this.expandOutput += val;
+        // 重新赋值codeword
+        codeword = output[j++];
+        // 到达文件关闭符号，就直接退出循环。
+        if (codeword == this.R) break;
+        // 获取下一个编码
+        let s = st[codeword];
+        // 如果前瞻字符不可用
+        if (i == codeword) {
+          // 根据上一个字符串的首字母得到编码的字符串
+          s = val + val.charAt(0);
+        }
+        if (i < this.L) {
+          // 为编译表添加新的条目
+          // 第一次val为A，然后s为B 这时候i为257为AB
+          // 比如是下面的D的时候，下一个是AB，所以，DA,
+          // ABRACAD ABRABRABRA
+          // 当时AB的时候，下一个是RA，所以是ABR
+          // ABRACADAB RABRABRA
+          st[i++] = val + s.charAt(0);
+        }
+        // 更新当前编码
+        val = s;
+      }
+      console.log(st)
+    }
+  }
+  console.log('------------------------------------------------------------------------------------')
+  console.log('LZW压缩算法')
+  // var lwz = new LZW('ABRACADABRABRABRA')
+  // lwz.compress();
+  // lwz.expand();
+  // console.log(lwz)
+  var lwz = new LZW('ABABABA')
+  lwz.compress();
+  lwz.expand();
+  console.log(lwz)
+  console.log('------------------------------------------------------------------------------------')
+</script>
+
+</html>

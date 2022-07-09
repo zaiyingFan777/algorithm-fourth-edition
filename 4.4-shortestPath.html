@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+
+</body>
+<script>
+  // 基本数据结构
+  class Node {
+    constructor(val) {
+      this.val = val;
+      this.next = null;
+    }
+  }
+  // 包，这里用链表实现，a放在包里后，再放b，b在a上面 链表的表示就是b->a
+  class Bag {
+    constructor() {
+      this.first = null;
+      this.N = 0; // Bag的长度
+    }
+
+    isEmpty() {
+      return this.first == null;
+    }
+
+    size() {
+      return this.N;
+    }
+
+    // 往包里添加
+    add(key) {
+      // 保存老的链表
+      var oldFirst = this.first;
+      // 创建一个新的结点
+      this.first = new Node(key);
+      // 把老的结点放到新的first后i面
+      this.first.next = oldFirst;
+      this.N++;
+    }
+  }
+  // 最短路径
+  // 一个地方到达另一个地方的路径
+  // 我们立即可以得到与之对应的图模型：顶点对应交叉路口，边对应公路，边的权重对应经过该路段的成本，可以是时间或者距离。如果有单行线，那就意味着还需要考虑加权有向图
+  // 找到从一个顶点到达另一个顶点的成本最小的路径。
+  // 我们采用了一个一般性的模型，即加权有向图
+  // 在加权有向图中，每条有向路径都有一个与之关联的路径权重，它是路径中的所有边的权重之和
+  // 这种重要的度量方式使得我们能够将这个问题归纳为“找到从一个顶点到达另一个顶点的权重最小的有向路径”
+  // 定义。在一幅加权有向图中，从顶点s到顶点t的最短路径是所有从s到t的路径中的权重最小者。
+
+  // 本节中，我们将会学习解决下面这个问题的经典算法。单点最短路径
+  // 给定一幅加权有向图和一个起点s，回答“从s到给定的目的顶点v是否存在一条有向路径？如果有，找出最短（总权重最小）的那条路径。
+  // 我们计划在本节中讨论下列问题：
+  // ❏加权有向图的API和实现以及单点最短路径的API；
+  // ❏解决边的权重非负的最短路径问题的经典Dijkstra算法；
+  // ❏在无环加权有向图中解决该问题的一种快速算法，边的权重甚至可以是负值；
+  // ❏适用于一般情况的经典Bellman-Ford算法，其中图可以含有环，边的权重也可以是负值。我们还需要算法来找出负权重的环，以及不含有这种环的加权有向图中的最短路径。
+
+  // 一、最短路径的性质
+  // 最短路径问题的基本定义是很简单的，但这种简洁也隐藏了一些在学习相关的算法和数据结构之前需要解决的问题。
+  // ❏路径是有向的。最短路径需要考虑到各条边的方向。
+  // ❏权重不一定等价于距离。
+  // ❏并不是所有顶点都是可达的
+  // ❏负权重会使问题更复杂。
+  // ❏最短路径一般都是简单的。
+  // ❏最短路径不一定是唯一的。从一个顶点到达另一个顶点的权重最小的路径可能有多条，我们只要找到其中一条即可。
+  // ❏可能存在平行边和自环：平行边中的权重最小者才会被选中，最短路径也不可能包含自环（除非自环的权重为零，但我们会忽略它）
+  // 1.最短路径树
+  // 我们的重点是单点最短路径问题，其中给出了起点s，计算的结果是一棵最短路径树（SPT），它包含了顶点s到所有可达的顶点的最短路径
+  // 定义。给定一幅加权有向图和一个顶点s，以s为起点的一棵最短路径树是图的一幅子图，它包含s和从s可达的所有顶点。这棵有向树的根结点为s，树的每条路径都是有向图中的一条最短路径。
+  // 这样一棵树是一定存在的：一般来说，从s到一个顶点有可能存在两条长度相等的路径。如果出现这种情况，可以删除其中一条路径的最后一条边。如此这般，直到从起点到每个顶点都只有一条路径相连
+
+  // 2.加权有向图的数据结构
+  // 有向边的数据结构比无向边更加简单，因为有向边只有一个方向。与Edge类中的either()和other()方法不同，这里定义了from()和to()方法
+  // public class DirectedEdge
+  //              DirectedEdge(int v, int w, double weight)
+  //       double weight()                                         边的权重
+  //          int from()                                           指出这条边的顶点
+  //          int to()                                             这条边指向的顶点
+  //       String toString()                                       对象的字符串表示
+
+  // 加权有向图的API
+  //         public class EdgeWeightedDigraph
+  //                      EdgeWeightedDigraph(int V)       含有V个顶点的空有向图
+  //                      EdgeWeightedDigraph(In in)       从输入流中读取图的构造函数
+  //                  int V()                              顶点总数
+  //                  int E()                              边的总数
+  //                  void addEdge(DirectedEdge e)         将e添加到该有向图中
+  // Interable<DirectedEdge> adj(int v)                      从v指出的边
+  // Interable<DirectedEdge> edges()                         该有向图中的所有边
+  //                string toString()                      对象的字符串表示
+
+  // 加权有向边的数据类型
+  // 用例可以使用惯用代码int v=e.to(), w=e. from()；来访问DirectedEdge的两个端点。
+  class DirectedEdge {
+    constructor(v, w, weight) {
+      // 边的起点
+      this.v = v;
+      // 边的终点
+      this.w = w;
+      // 边的权重
+      this.weight = weight;
+    }
+
+    // 边的权重
+    Weight() {
+      return this.weight;
+    }
+
+    // 指出这条边的顶点
+    from() {
+      return this.v;
+    }
+
+    // 这条边指向的顶点
+    to() {
+      return this.w;
+    }
+  }
+
+  // 加权有向图的数据类型
+  // 与Digraph类一样，每条边在邻接表中只会出现一次：如果一条边从v指向w，那么它只会出现在v的邻接链表中
+  class EdgeWeightedDigraph {
+    constructor(v) {
+      // 顶点总数
+      this.v = v;
+      // 边的总数
+      this.e = 0;
+      // 邻接表 数组，数组元素为Bag(链表)
+      // [链表1，链表2，链表3]，这里下标对应了点，从0开始，item就是点的邻接表链表
+      this.adj = new Array(this.v).fill(null).map(item => new Bag());
+    }
+
+    // 顶点总数
+    V() {
+      return this.v;
+    }
+
+    // 边的总数
+    E() {
+      return this.e;
+    }
+
+    // 将e添加到该有向图中
+    addEdge(e) {
+      // 因为是有向的。只需要将e添加到e的from顶点上即可
+      this.adj[e.from()].add(e);
+      // 边的总数加1
+      this.e++;
+    }
+
+    // 从v指出的边
+    Adj(v) {
+      return this.adj[v];
+    }
+
+    // 该有向图中的所有边
+    edges() {
+      // 声明一个bag对象存放边
+      var b = new Bag();
+      // 遍历所有的顶点，取出顶点的边(Adj)
+      for (var v = 0; v < this.v; v++) {
+        for (var e = this.Adj(v).first; e != null; e = e.next) {
+          b.add(e.val);
+        }
+      }
+      return b;
+    }
+  }
+
+  var tinyEWG = new EdgeWeightedDigraph(8);
+  tinyEWG.addEdge(new DirectedEdge(4, 5, 0.35));
+  tinyEWG.addEdge(new DirectedEdge(5, 4, 0.35));
+  tinyEWG.addEdge(new DirectedEdge(4, 7, 0.37));
+  tinyEWG.addEdge(new DirectedEdge(5, 7, 0.28));
+  tinyEWG.addEdge(new DirectedEdge(7, 5, 0.28));
+  tinyEWG.addEdge(new DirectedEdge(5, 1, 0.32));
+  tinyEWG.addEdge(new DirectedEdge(0, 4, 0.38));
+  tinyEWG.addEdge(new DirectedEdge(0, 2, 0.26));
+  tinyEWG.addEdge(new DirectedEdge(7, 3, 0.39));
+  tinyEWG.addEdge(new DirectedEdge(1, 3, 0.29));
+  tinyEWG.addEdge(new DirectedEdge(2, 7, 0.34));
+  tinyEWG.addEdge(new DirectedEdge(6, 2, 0.40));
+  tinyEWG.addEdge(new DirectedEdge(3, 6, 0.52));
+  tinyEWG.addEdge(new DirectedEdge(6, 0, 0.58));
+  tinyEWG.addEdge(new DirectedEdge(6, 4, 0.93));
+  console.log(tinyEWG)
+  console.log(tinyEWG.edges());
+
+  // 最短路径的API
+  // 算法将会实现表4.4.4所示的API来为用例提供图中的最短路径和其长度。
+  //                public class SP
+  //                             SP(EdgeWeightedDigraph G, int s)  构造函数
+  //                      double distTo(int v)                     从顶点s到v的距离，如果不存在则路径为无穷大
+  //                     boolean hasPathTo(int v)                  是否存在从顶点s到v的路径
+  //     Interable<DirectedEdge> pathTo(int v)                     从顶点s到v的路径，如果不存在则为null
+
+  // 它接受一个输入流和一个起点作为命令行参数，从输入流中读取加权有向图，根据起点来计算有向图的最短路径树并打印从起点到其他所有顶点的最短路径。
+  // 最短路径的数据结构
+  // ❏最短路径树中的边。使用一个由顶点索引的DirectedEdge对象的父链接数组edgeTo[]，其中edgeTo[v]的值为树中连接v和它的父结点的边（也是从s到v的最短路径上的最后一条边）。
+  // ❏到达起点的距离。我们需要一个由顶点索引的数组distTo[]，其中distTo[v]为从s到v的已知最短路径的长度。
+  // 我们约定，edgeTo[s]的值为null, distTo[s]的值为0。同时还约定，从起点到不可达的顶点的距离均为Double.POSITIVE_INFINITY
+
+  // 边的松弛
+  // 我们的最短路径API的实现都基于一个被称为松弛（relaxation）的简单操作
+  // 定义如下：放松边v→w意味着检查从s到w的最短路径是否是先从s到v，然后再由v到w。如果是，则根据这个情况更新数据结构的内容
+  // 由v到达w的最短路径是distTo[v]与e.weight()之和——如果这个值不小于distTo[w]，称这条边失效了并将它忽略；如果这个值更小，就更新数据。
+  // relax(e) {
+  //   // 找到边e的起点和终点
+  //   var v = e.from(), w = e.to();
+  //   if (this.distTo[w] > this.distTo[v] + e.Weight()) {
+  //     // 出现松弛操作
+  //     this.distTo[w] = this.distTo[v] + e.Weight();
+  //     // 更新到w的边
+  //     this.edgeTo[w] = e;
+  //   }
+  // }
+  // 松弛这个术语来自于用一根橡皮筋沿着连接两个顶点的路径紧紧展开的比喻：放松一条边就类似于将橡皮筋转移到一条更短的路径上，从而缓解了橡皮筋的压力
+  // 我觉得就是距离长橡皮筋就被拉的紧，然后找到更短路径了，所以就被拉的没那么紧了
+
+  // 顶点的松弛
+  // 实际上，实现会放松从一个给定顶点指出的所有边，如下页框注中（被重载的）relax()的实现所示。
+  // 注意，从任意distTo[v]为有限值的顶点v指向任意distT[]为无穷的顶点的边都是有效的，如果v被放松，那么这些有效边都会被添加到edgeTo[]中
+  // 某条从起点指出的边将会是第一条被加入edgeTo[]中的边
+  // 算法会谨慎选择顶点，使得每次顶点松弛操作都能得出到达某个顶点的更短的路径，最后逐渐找出到达每个顶点的最短路径
+  // relax(G, v) {
+  //   // 遍历v指出的所有边
+  //   for(var e = G.Adj(v).first; e != null; e = e.next) {
+  //     // 找到从v指出的边e的顶点
+  //     var w = e.val.to();
+  //     if (this.distTo[w] > this.distTo[v] + e.val.Weight()) {
+  //       // 出现松弛操作
+  //       this.distTo[w] = this.distTo[v] + e.val.Weight();
+  //       // 更新到w的边
+  //       this.edgeTo[w] = e.val;
+  //     }
+  //   }
+  // } 
+  // 前面已经提到过，只有在v是从s可达的情况下，distTo[v]才是有意义的，还已经约定，对于从s不可达的顶点，distTo()方法都应该返回无穷大。
+  // 将distTo[]中的所有元素都初始化为Double.POSITIVE_INFINITY, distTo[s]则为0
+  // 最短路径算法会将从起点可达的顶点v的distTo[v]设为一个有限值，这样就不必再用marked[]数组来在图的搜索中标记可达的顶点，而是通过检测distTo[v]是否为Double.POSITIVE_INFINITY来实现hasPathTo(v)
+  // 对于pathTo()方法，我们约定如果v不是从起点可达的则返回null，如果v等于起点则返回一条不含任何边的路径
+  // 对于可达的顶点，我们会遍历最短路径树并返回栈上的所有边，这和DepthFirstPaths以及BreadthFirstPaths的做法完全一样
+
+  // 从顶点s到v的距离，没有则返回无穷大
+  // 最短路径API中的查询方法
+  // DistTo(v) {
+  //   return this.distTo[v];
+  // }
+  // // 是否存在从顶点s到v的路径
+  // hasPathTo(v) {
+  //   return this.distTo[v] < Infinity;
+  // }
+  // // 从顶点s到v的路径，如果不存在则为null
+  // pathTo(v) {
+  //   if (!this.hasPathTo(v)) return null;
+  //   // 按书中的例子，
+  //   // v   edgeTo[]
+  //   // 0   null
+  //   // 1   5->1
+  //   // 2   0->2
+  //   // 3   7->3
+  //   // 4   0->4
+  //   // 5   4->5
+  //   // 6   3->6
+  //   // 7   2->7
+  //   // pathTo(6)
+  //   // e      路径
+  //   // 3->6
+  //   // 7->3   3->6
+  //   // 2->7   7->3 3->6
+  //   // 0->2   2->7 7->3 3->6
+  //   // null   0->2 2->7 7->3 3->6
+  //   // 定义一个栈，先进后出，上面例子，先进的3->6所以他是最后一个出来
+  //   var path = [];
+  //   for(var e = this.edgeTo[v]; e != null; e = this.edgeTo[e.from()]) {
+  //     path.push(e);
+  //   }
+  //   return e;
+  // }
+  // 命题Q（通用最短路径算法）。将distTo[s]初始化为0，其他distTo[]元素初始化为无穷大，继续如下操作：放松G中的任意边，直到不存在有效边为止。
+  // 对于任意从s可达的顶点w，在进行这些操作之后，distTo[w]的值即为从s到w的最短路径的长度（且edgeTo[w]的值即为该路径上的最后一条边）。
+
+
+  // Dijkstra算法
+  // 我们讨论了寻找加权无向图中的最小生成树的Prim算法：构造最小生成树的每一步都向这棵树中添加一条新的边。Dijkstra算法采用了类似的方法来计算最短路径树
+  // 首先将distTo[s]初始化为0, distTo[]中的其他元素初始化为正无穷。然后将distTo[]最小的非树顶点放松并加入树中，如此这般，直到所有的顶点都在树中或者所有的非树顶点的distTo[]值均为无穷大
+  // 命题R。Dijkstra算法能够解决边权重非负的加权有向图的单起点最短路径问题。
+
+  // 还在relax()方法中添加了一行语句来处理以下两种情况：要么边的to()得到的顶点还不在优先队列中，此时需要使用insert()方法将它加入到优先队列中；要么它已经在优先队列中且优先级需要被降低，此时可以用change()方法实现。
+  // 命题R（续）。在一幅含有V个顶点和E条边的加权有向图中，使用Dijkstra算法计算根结点为给定起点的最短路径树所需的空间与V成正比，时间与ElogV成正比（最坏情况下）。
+
+  // 思考Dijkstra算法的另一种方式就是将它和4.3节的Prim算法（算法4.7）相比较。两种算法都会用添加边的方式构造一棵树：Prim算法每次添加的都是离树最近的非树顶点，Dijkstra算法每次添加的都是离起点最近的非树顶点
+  // 它们都不需要marked[]数组，因为条件！marked[w]等价于条件distTo[w]为无穷大
+
+  // 索引优先队列
+  class IndexMinPQ {
+    constructor(maxN) {
+      // 基于堆的完全二叉树的数组，maxN为二叉树中结点的个数，所以我们创建数组为maxN+1，第0位元素不用，N个结点对应的下标为1，2，3...N，
+      // 使用Key[] keys保存对象
+      this.keys = new Array(maxN + 1).fill(null);;
+      // 使用int[] pq数组作为索引队列，保存对象在数组中的位置
+      this.pq = new Array(maxN + 1).fill(0);
+      // 用一个int[] qp保存pq的逆序
+      // 即如果pq[i] = j（表示数组pq索引为i的位置存放了一个被关联的整数j），则有qp[j] = i，
+      // 因此qp保存的是被关联整数j在数组pq中的索引
+      // 易知pq[qp[j]] = j; qp[pq[i]] = i
+      // 个人理解：初始化的时候，因为整数i还没有被关联，所以qp[i] = -1
+      this.qp = new Array(maxN + 1).fill(-1);
+      this.N = 0; // 存储于pq[1..N]，pq[0]没有使用
+    }
+
+    isEmpty() {
+      return this.N === 0;
+    }
+
+    size() {
+      return this.N;
+    }
+
+    // 是否包含index
+    contains(index) {
+      return this.qp[index] != -1;
+    }
+
+    // 最小元素关联索引
+    minIndex() {
+      return this.pq[1];
+    }
+
+    // less 判断堆中索引i处的元素是否小于索引j处的元素
+    // i处的元素小于j处的元素则返回true，否则返回false
+    less(i, j) {
+      return this.keys[this.pq[i]] < this.keys[this.pq[j]];
+    }
+
+    // 交换位置
+    // 交换堆中索引i处元素和索引j处元素
+    exch(i, j) {
+      // pq数组item变化
+      var temp = this.pq[i];
+      this.pq[i] = this.pq[j];
+      this.pq[j] = temp;
+      // qp数组也要变化关联整数在pq中的索引
+      this.qp[this.pq[i]] = i;
+      this.qp[this.pq[j]] = j;
+    }
+
+    // 上浮
+    //使用上浮算法，使索引k处的元素能在堆中处于一个正确的位置
+    swim(index) {
+      while (index > 1 && this.less(index, Math.floor(index / 2))) {
+        // 调换位置
+        this.exch(index, Math.floor(index / 2));
+        // 更新k的值
+        index = Math.floor(index / 2);
+      }
+    }
+
+    // 下沉
+    // 使用下沉算法，使索引k处的元素能在堆中处于一个正确的位置
+    sink(k) {
+      while (2 * k <= this.N) {
+        // 找到子节点
+        var j = 2 * k;
+        // !!!!找到子节点中的较小值
+        // 左子节点不是最后一个元素，并且左子节点小于右子节点
+        // 如果左子节点大于右子节点，那就让a[k]与右子节点去比较（找到两个子节点中左右最小的结点）
+        if (j < this.N && this.less(j + 1, j)) {
+          j++;
+        }
+        // 判断k和j，如果a[k] < a[j]那就终止循环，因为a[k]比他的子节点小了
+        if (this.less(k, j)) break;
+        // 交换元素
+        this.exch(k, j);
+        // 对k重新赋值
+        k = j;
+      }
+    }
+
+    // 删除最小的
+    // 删除队列中最小的元素，并返回该元素关联的索引
+    delMin() {
+      // 获取最小元素的关联索引 可就是keys数组的下标
+      var min = this.pq[1];
+      // 将第一个与最后一个交换位置
+      // 然后N--
+      this.exch(1, this.N--);
+      // 删除qp数组对应的元素
+      this.qp[this.pq[this.N + 1]] = -1;
+      // 删除keys中对应的内容
+      // this.keys[min] = null;
+      this.keys[this.pq[this.N + 1]] = null;
+      //删除pq中最大索引处的内容
+      this.pq[this.N + 1] = 0;
+      // 恢复堆的有序性
+      this.sink(1);
+      return min;
+    }
+
+    // 插入
+    // 往队列中插入一个元素，并关联索引
+    // i为keys数组的下标,t为i对应的item
+    insert(i, t) {
+      // 先检查i是否已经被关联，如果被关联，则不能被插入
+      if (this.contains(i)) {
+        console.error(i + "已经被关联了，不允许被插入");
+        return;
+      }
+      //元素个数增加
+      this.N++;
+      // 把数据存储到keys对应i的位置
+      this.keys[i] = t;
+      // 把i存储到pq中
+      this.pq[this.N] = i;
+      // 通过qp来记录pq中的i
+      this.qp[i] = this.N;
+      // 通过上浮进行堆的排序
+      this.swim(this.N);
+    }
+
+    // change 把与索引i关联的元素修改为t
+    change(i, t) {
+      //修改keys数组中i位置的元素为t
+      this.keys[i] = t;
+      // 找到i在pq中出现的位置
+      // 通过qp保存的pq的下标来找到
+      var k = this.qp[i];
+      // 堆调整
+      // 先上浮后下沉
+      this.swim(k);
+      this.sink(k);
+    }
+
+    //删除索引i关联的元素
+    delete(i) {
+      if (!this.contains(i)) {
+        console.error("没" + i + "你删个茄子");
+      }
+      // 找到i在pq中的索引
+      var k = this.qp[i];
+      // 交换pq中索引k处的值和索引n处的值
+      this.exch(k, this.N);
+      // 删除qp中的内容
+      this.qp[this.pq[this.N]] = -1;
+      // 删除items中的内容
+      this.keys[i] = null; // Same thing as keys[pq[size]] = null
+      // 删除pq的内容
+      this.pq[this.N] = 0;
+      this.N--;
+      // 堆调整
+      // 先上浮后下沉
+      // 这里一定要先上浮下沉后再将元素置空，因为swim方法没有N的限制，在没有交换元素的情况下，即删除的就是pq中最后一个元素，如果先置空, 会在greater方法中引发空指针
+      // 而sink方法有N的限制，先置空后置空都没有影响，2k <= N会限制它进入循环，避免了空指针
+      this.swim(k);
+      this.sink(k);
+    }
+  }
+
+  // 算法4.9最短路径的Dijkstra算法
+  // Dijkstra算法的实现每次都会为最短路径树添加一条边，该边由一个树中的顶点指向一个非树顶点w且它是到s最近的顶点。
+  class DijkstraSP {
+    constructor(G, s) {
+      // 保存加权有向图
+      this.G = G;
+      // edgeTo数组保存的是边
+      // 从s到各个顶点的v的最短路径存放的边的数组
+      this.edgeTo = new Array(this.G.V()).fill(null);
+      // distTo数组保存的是距离，初始值为无穷大，distTo[s]为0
+      // 也就是没有到达的点都是无穷大
+      this.distTo = new Array(this.G.V()).fill(Infinity);
+      this.distTo[s] = 0.0;
+      // 索引优先队列
+      // 优先队列中pq数组的长度为this.G.V + 1
+      this.pq = new IndexMinPQ(this.G.V());
+      // 将起点跟距离添加到pq中，默认为起点s和0.0
+      this.pq.insert(s, 0);
+
+      // while循环，优先队列不为空
+      while (!this.pq.isEmpty()) {
+        // 松弛，从pq中拿到最小的那个点，然后对点松弛
+        this.relax(this.G, this.pq.delMin());
+      }
+    }
+
+    // 对点松弛
+    relax(G, v) {
+      // 遍历v指出的所有边
+      for (var e = G.Adj(v).first; e != null; e = e.next) {
+        // 找到从v指出的边e的顶点
+        var w = e.val.to();
+        if (this.distTo[w] > this.distTo[v] + e.val.Weight()) {
+          // 出现松弛操作
+          this.distTo[w] = this.distTo[v] + e.val.Weight();
+          // 更新到w的边
+          this.edgeTo[w] = e.val;
+          // 要么边的to()得到的顶点还不在优先队列中，此时需要使用insert()方法将它加入到优先队列中；要么它已经在优先队列中且优先级需要被降低，此时可以用change()方法实现。
+          if (this.pq.contains(w)) {
+            this.pq.change(w, this.distTo[w]);
+          } else {
+            this.pq.insert(w, this.distTo[w]);
+          }
+        }
+      }
+    }
+
+    // 最短路径树的距离
+    DistTo(v) {
+      return this.distTo[v];
+    }
+
+    // 是否存在从顶点s到v的路径
+    hasPathTo(v) {
+      return this.distTo[v] < Infinity;
+    }
+
+    // 从顶点s到v的路径，如果不存在则为null
+    pathTo(v) {
+      if (!this.hasPathTo(v)) return null;
+      // 按书中的例子，
+      // v   edgeTo[]
+      // 0   null
+      // 1   5->1
+      // 2   0->2
+      // 3   7->3
+      // 4   0->4
+      // 5   4->5
+      // 6   3->6
+      // 7   2->7
+      // pathTo(6)
+      // e      路径
+      // 3->6
+      // 7->3   3->6
+      // 2->7   7->3 3->6
+      // 0->2   2->7 7->3 3->6
+      // null   0->2 2->7 7->3 3->6
+      // 定义一个栈，先进后出，上面例子，先进的3->6所以他是最后一个出来
+      var path = [];
+      for (var e = this.edgeTo[v]; e != null; e = this.edgeTo[e.from()]) {
+        path.push(e);
+      }
+      return path;
+    }
+  }
+  console.log('----------------------------------------------------------------------------------------');
+  console.log('狄克斯特拉')
+  var dsp = new DijkstraSP(tinyEWG, 0);
+  console.log(dsp, '1111', dsp.pathTo(6))
+  console.log('----------------------------------------------------------------------------------------');
+
+  // 任意顶点对之间的最短路径
+  class DijkstraAllPairsSP {
+    constructor(G) {
+      // 定义一个数组，里面都是以index下标为起点的DijkstraSP对象
+      this.all = new Array(G.V()).fill(null).map((item, index) => new DijkstraSP(G, index));
+    }
+
+    // path
+    path(s, t) {
+      return this.all[s].pathTo(t);
+    }
+
+    dist(s, t) {
+      return this.all[s].DistTo(t);
+    }
+  }
+  console.log('----------------------------------------------------------------------------------------');
+  console.log('任意顶点对的最短路径')
+  var dasp = new DijkstraAllPairsSP(tinyEWG);
+  console.log(dasp, dasp.path(0, 6))
+  console.log('----------------------------------------------------------------------------------------');
+
+  // 无环加权有向图中的最短路径算法(线性时间)
+  var tinyEWG2 = new EdgeWeightedDigraph(8);
+  tinyEWG2.addEdge(new DirectedEdge(5, 4, 0.35));
+  tinyEWG2.addEdge(new DirectedEdge(4, 7, 0.37));
+  tinyEWG2.addEdge(new DirectedEdge(5, 7, 0.28));
+  tinyEWG2.addEdge(new DirectedEdge(5, 1, 0.32));
+  tinyEWG2.addEdge(new DirectedEdge(4, 0, 0.38));
+  tinyEWG2.addEdge(new DirectedEdge(0, 2, 0.26));
+  tinyEWG2.addEdge(new DirectedEdge(3, 7, 0.39));
+  tinyEWG2.addEdge(new DirectedEdge(1, 3, 0.29));
+  tinyEWG2.addEdge(new DirectedEdge(7, 2, 0.34));
+  tinyEWG2.addEdge(new DirectedEdge(6, 2, 0.40));
+  tinyEWG2.addEdge(new DirectedEdge(3, 6, 0.52));
+  tinyEWG2.addEdge(new DirectedEdge(6, 0, 0.58));
+  tinyEWG2.addEdge(new DirectedEdge(6, 4, 0.93));
+
+  // ❏能够在线性时间内解决单点最短路径问题；
+  // ❏能够处理负权重的边；
+  // ❏能够解决相关的问题，例如找出最长的路径。
+
+  // 这些算法都是在4.2节中学过的无环有向图的拓扑排序算法的简单扩展。
+  // 特别的是，只要将顶点的放松和拓扑排序结合起来，马上就能够得到一种解决无环加权有向图中的最短路径问题的算法。
+  // 首先，将distTo[s]初始化为0，其他distTo[]元素初始化为无穷大，然后一个一个地按照拓扑顺序放松所有顶点
+
+  // 命题S。按照拓扑顺序放松顶点，就能在和E+V成正比的时间内解决无环加权有向图的单点最短路径问题。
+
+  // 寻找有向环(寻找加权有向图中的环)
+  // 该类为标准的递归dfs()方法添加了一个布尔类型的数组onStack[]来保存递归调用期间栈上的所有顶点。当它找到一条边v→w且w在栈中时，它就找到了一个有向环。环上的所有顶点可以通过edgeTo[]中的链接得到。
+  // 在执行dfs(G, v)时，查找的是一条由起点到v的有向路径。要保存这条路径，Direc-tedCycle维护了一个由顶点索引的数组onStack[]，以标记递归调用的栈上的所有顶点（在调用dfs(G, v)时将onStack[v]设为true，在调用结束时将其设为false）
+  class EdgeWeightedDirectedCycle {
+    constructor(G) {
+      // 保存图
+      this.G = G;
+      // 标记数组，到达该顶点后，将false改为true
+      this.marked = new Array(this.G.V()).fill(false);
+      // edgeTo数组
+      // edgeTo[w]：就是v->w存放的是到w的边
+      this.edgeTo = new Array(this.G.V()).fill(null);
+      // 有向环中的所有顶点（如果存在）
+      this.cycle = null;
+      // 递归调用的栈上的所有顶点
+      this.onStack = new Array(this.G.V()).fill(false); // 栈先进后出
+      // 循环开始，每个顶点都会遍历到，然后如果没有被marked的顶点进行dfs
+      for (var v = 0; v < this.G.V(); v++) {
+        if (!this.marked[v]) {
+          this.dfs(this.G, v);
+        }
+      }
+    }
+
+    dfs(G, v) {
+      // 递归就是这个顶点入栈，将v在onStack中的item改为true
+      this.onStack[v] = true;
+      // 标记该点
+      this.marked[v] = true;
+      // 遍历从v发出的边（指出的边）
+      for (var e = G.Adj(v).first; e != null; e = e.next) {
+        // 从v指出的边的另一个点：就是v->w中的w
+        // 找到从v指出的边e的顶点
+        var w = e.val.to();
+        if (this.hasCycle()) {
+          // 如果有环停止遍历
+          return;
+        } else if (!this.marked[w]) {
+          // 从v指向的w的边为v->w(e)，然后edgeTo[w]存放的就是边e
+          this.edgeTo[w] = e.val;
+          // 如果v相邻的点没有被标记，则继续进行深度优先遍历
+          this.dfs(G, w);
+        } else if (this.onStack[w]) {
+          // 如果w已经在调用栈中了
+          // 给cycle定义成一个栈，item为数字类型
+          this.cycle = [];
+          var edgeInCycle = e.val;
+          console.log(v, w)
+          while (w != (edgeInCycle.from())) {
+            this.cycle.push(edgeInCycle);
+            edgeInCycle = this.edgeTo[(edgeInCycle.from())];
+          }
+          console.log(edgeInCycle)
+          this.cycle.push(edgeInCycle);
+          // 为了方便看，这里reverse数组
+          this.cycle.reverse();
+          return;
+        }
+      }
+      // 递归完v后，出函数调用栈的时候，将onStack[v]改为false
+      this.onStack[v] = false;
+    }
+
+    // 是否有环
+    hasCycle() {
+      return this.cycle != null;
+    }
+
+    returnCycle() {
+      return this.cycle;
+    }
+  }
+  console.log('------------------------------');
+  console.log('测试加权有向图是否有环');
+  var edc = new EdgeWeightedDirectedCycle(tinyEWG2);
+  console.log(edc)
+  var edc1 = new EdgeWeightedDirectedCycle(tinyEWG);
+  console.log(edc1)
+  console.log('------------------------------');
+
+  // 深度优先的顶点排序
+  // 有向图中基于深度优先搜索的顶点排序
+  class DepthFirstOrder {
+    constructor(G) {
+      // 保存图
+      this.G = G;
+      // 标记数组，到达该顶点后，将false改为true
+      this.marked = new Array(this.G.V()).fill(false);
+      // pre：所有顶点的前序排列
+      this.pre = []; // queue
+      // post: 所有顶点的后续排列
+      this.post = []; // queue
+      // reversePost：所有顶点的逆后续排列
+      this.reversePost = []; // stack
+      // 循环开始，每个顶点都会遍历到，然后如果没有被marked的顶点进行dfs
+      for (var v = 0; v < this.G.V(); v++) {
+        if (!this.marked[v]) {
+          this.dfs(this.G, v);
+        }
+      }
+    }
+
+    dfs(G, v) {
+      // 在递归调用前将顶点加入前序队列数组
+      this.pre.push(v);
+      this.marked[v] = true;
+      for (var e = G.Adj(v).first; e != null; e = e.next) {
+        var w = e.val.to();
+        if (!this.marked[w]) {
+          this.dfs(this.G, w);
+        }
+      }
+      // 递归调用之后将顶点加入到后续队列数组种
+      this.post.push(v);
+      // 递归调用之后将顶点加入到逆后续stack中，这里为了区分队列和数组，我们往数组的前面加元素，出栈的时候也是从前面拿元素
+      this.reversePost.unshift(v); // unshift往前面加，shift删除第一个，同理push，pop跟他们相反
+    }
+  }
+
+  console.log('------------------------------');
+  console.log('测试加权有向图顶点排序');
+  var dfo = new DepthFirstOrder(tinyEWG2);
+  console.log(dfo)
+  console.log('------------------------------');
+
+  // Topological拓扑排序
+  class Topological {
+    constructor(G) {
+      this.G = G;
+      // 查找环
+      this.cycleFinder = new EdgeWeightedDirectedCycle(this.G);
+      // 顶点的拓扑排序
+      this.order = null;
+      // 有向图中基于深度优先搜索的顶点排序
+      this.dfs = null;
+      // 如果没环
+      if (!this.cycleFinder.hasCycle()) {
+        // 有向图中基于深度优先搜索的顶点排序
+        this.dfs = new DepthFirstOrder(this.G);
+        this.order = this.dfs.reversePost; // 记得用shift来取值
+      }
+    }
+
+    // 返回顶点的拓扑排序
+    Order() {
+      return this.order;
+    }
+
+    // G是有向无环图吗
+    isDAG() {
+      return this.order != null;
+    }
+  }
+
+  console.log('------------------------------');
+  console.log('测试加权有向图拓扑排序');
+  var tg = new Topological(tinyEWG2);
+  console.log(tg, tg.order)
+  console.log('------------------------------');
+
+  // 算法4.10无环加权有向图的最短路径7算法5-＞7
+  // Acyclic：无环
+  class AcyclicSP {
+    constructor(G, s) {
+      this.s = s;
+      this.G = G;
+      // 从s到各个顶点的v的最短路径存放的边的数组
+      this.edgeTo = new Array(this.G.V()).fill(null);
+      // distTo数组保存的是距离，初始值为无穷大，distTo[s]为0
+      // 也就是没有到达的点都是无穷大
+      this.distTo = new Array(this.G.V()).fill(Infinity);
+      // 将起点设为s，distTo[s]起点为0.0
+      this.distTo[s] = 0.0;
+      // 找到图G的拓扑顺序
+      this.top = new Topological(this.G);
+      // 根据拓扑排序，挨个对点进行放松
+      for (var v = 0; v < this.top.Order().length; v++) {
+        // 对每个拓扑顺序的点进行放松
+        this.relax(this.G, this.top.Order()[v]);
+      }
+    }
+
+    // 对点松弛
+    relax(G, v) {
+      // 遍历v指出的所有边
+      for (var e = G.Adj(v).first; e != null; e = e.next) {
+        // 找到从v指出的边e的顶点
+        var w = e.val.to();
+        if (this.distTo[w] > this.distTo[v] + e.val.Weight()) {
+          // 出现松弛操作
+          this.distTo[w] = this.distTo[v] + e.val.Weight();
+          // 更新到w的边
+          this.edgeTo[w] = e.val;
+        }
+      }
+    }
+
+    // 最短路径树的距离
+    DistTo(v) {
+      return this.distTo[v];
+    }
+
+    // 是否存在从顶点s到v的路径
+    hasPathTo(v) {
+      return this.distTo[v] < Infinity;
+    }
+
+    // 从顶点s到v的路径，如果不存在则为null
+    pathTo(v) {
+      if (!this.hasPathTo(v)) return null;
+      // 定义一个栈，先进后出，上面例子，先进的3->6所以他是最后一个出来
+      var path = [];
+      for (var e = this.edgeTo[v]; e != null; e = this.edgeTo[e.from()]) {
+        path.push(e);
+      }
+      return path;
+    }
+  }
+  console.log('------------------------------------------------------------')
+  console.log('AcyclicSP：加权无环图通过拓扑顺序')
+  var alsp = new AcyclicSP(tinyEWG2, 5);
+  console.log(alsp)
+  for (let i = 0; i < alsp.G.V(); i++) {
+    // 如果有从起点到终点的距离
+    if (alsp.hasPathTo(i)) {
+      console.log(`${alsp.s} to ${i} (${alsp.DistTo(i)})：${JSON.stringify(alsp.pathTo(i).reverse())}`)
+    }
+  }
+  console.log('------------------------------------------------------------')
+
+  // 命题S很重要，因为它的“无环”能够极大地简化问题的论断。对于最短路径问题，基于拓扑排序的方法比Dijkstra算法快的倍数与Dijkstra算法中所有优先队列操作的总成本成正比
+
+  // !!!!!!!最长路径
+  // 考虑在无环加权有向图中寻找最长路径的问题，边的权重可正可负。
+  // 无环加权有向图中的单点最长路径
+  // 命题T。解决无环加权有向图中的最长路径问题所需的时间与E+V成正比。
+  // 证明。给定一个最长路径问题，复制原始无环加权有向图得到一个副本并将副本中的所有边的权重取相反数。这样，副本中的最短路径即为原图中的最长路径
+  // 根据这种转换实现AcyclicLP类来寻找一幅无环加权有向图中的最长路径就十分简单了
+  // 实现该类的一个更简单的方法是修改AcyclicSP，将distTo[]的初始值变为Double.NEGATIVE_INFINITY并改变relax()方法中的不等式的方向
+
+  class AcyclicLP {
+    constructor(G, s) {
+      this.s = s;
+      this.G = G;
+      // 从s到各个顶点的v的最短路径存放的边的数组
+      this.edgeTo = new Array(this.G.V()).fill(null);
+      // distTo数组保存的是距离，初始值为无穷大，distTo[s]为0
+      // 也就是没有到达的点都是无穷大
+      this.distTo = new Array(this.G.V()).fill(-Infinity);
+      // 将起点设为s，distTo[s]起点为0.0
+      this.distTo[s] = 0.0;
+      // 找到图G的拓扑顺序
+      this.top = new Topological(this.G);
+      // 根据拓扑排序，挨个对点进行放松
+      for (var v = 0; v < this.top.Order().length; v++) {
+        // 对每个拓扑顺序的点进行放松
+        this.relax(this.G, this.top.Order()[v]);
+      }
+    }
+
+    // 对点松弛
+    relax(G, v) {
+      // 遍历v指出的所有边
+      for (var e = G.Adj(v).first; e != null; e = e.next) {
+        // 找到从v指出的边e的顶点
+        var w = e.val.to();
+        if (this.distTo[w] < this.distTo[v] + e.val.Weight()) {
+          // 出现松弛操作
+          this.distTo[w] = this.distTo[v] + e.val.Weight();
+          // 更新到w的边
+          this.edgeTo[w] = e.val;
+        }
+      }
+    }
+
+    // 最短路径树的距离
+    DistTo(v) {
+      return this.distTo[v];
+    }
+
+    // 是否存在从顶点s到v的路径
+    hasPathTo(v) {
+      return this.distTo[v] < Infinity;
+    }
+
+    // 从顶点s到v的路径，如果不存在则为null
+    pathTo(v) {
+      if (!this.hasPathTo(v)) return null;
+      // 定义一个栈，先进后出，上面例子，先进的3->6所以他是最后一个出来
+      var path = [];
+      for (var e = this.edgeTo[v]; e != null; e = this.edgeTo[e.from()]) {
+        path.push(e);
+      }
+      return path;
+    }
+  }
+
+  // 拷贝一副加权无环图，然后将各个边取负值，负值图的最小路径就是非负图的最大路径
+  class AcyclicLP2 {
+    constructor(G, s) {
+      this.s = s;
+      this.G = G;
+      // 拷贝一副G，
+      this.negatedEdgesDigraph = new EdgeWeightedDigraph(this.G.V());
+      for (var v = 0; v < this.G.V(); v++) {
+        // 对每个点上的边拷贝取负值，然后赋值给G的副本
+        for (var e = G.Adj(v).first; e != null; e = e.next) {
+          var negatedEdge = new DirectedEdge(e.val.from(), e.val.to(), e.val.Weight() * -1);
+          this.negatedEdgesDigraph.addEdge(negatedEdge);
+        }
+      }
+      // 找到副本中的最短路径，就是原图中的最长路径
+      this.acyclicSP = new AcyclicSP(this.negatedEdgesDigraph, this.s);
+    }
+
+    // 最长路径树的距离
+    DistTo(v) {
+      if (this.acyclicSP.DistTo(v) == 0) {
+        return 0;
+      }
+      return this.acyclicSP.DistTo(v) * -1;
+    }
+
+    // 是否存在从顶点s到v的路径
+    hasPathTo(v) {
+      return this.acyclicSP.hasPathTo(v);
+    }
+
+    // 从顶点s到v的路径，如果不存在则为null
+    pathTo(v) {
+      return this.acyclicSP.pathTo(v);
+    }
+  }
+
+  console.log('------------------------------------------------------------')
+  console.log('AcyclicLP：加权无环图通过拓扑顺序----最长路径')
+  var allp = new AcyclicLP(tinyEWG2, 5);
+  console.log(allp)
+  for (let i = 0; i < allp.G.V(); i++) {
+    // 如果有从起点到终点的距离
+    if (allp.hasPathTo(i)) {
+      console.log(`lp1: ${allp.s} to ${i} (${allp.DistTo(i)})：${JSON.stringify(allp.pathTo(i).reverse())}`)
+    }
+  }
+  var allp2 = new AcyclicLP2(tinyEWG2, 5);
+  console.log(allp2)
+  for (let i = 0; i < allp2.G.V(); i++) {
+    // 如果有从起点到终点的距离
+    if (allp2.hasPathTo(i)) {
+      console.log(`lp1: ${allp2.s} to ${i} (${allp2.DistTo(i)})：${JSON.stringify(allp2.pathTo(i).reverse())}`)
+    }
+  }
+  console.log('------------------------------------------------------------')
+
+  // 并行任务调度
+  // 优先级限制下的并行任务调度
+  // 给定一组需要完成的任务和每个任务所需的时间，以及一组关于任务完成的先后次序的优先级限制。在满足限制条件的前提下应该如何在若干相同的处理器上（数量不限）安排任务并在最短的时间内完成所有任务？
+  // 4.2节的模型默认只有单个处理器：将任务按照拓扑顺序排序，完成任务的总耗时就是所有任务所需要的总时间
+
+  // 优先级限制下的并行任务调度问题的关键路径方法
+  // 在图中每个任务都对应着三条边（从起点到起始顶点、从结束顶点到终点的权重为零的边，以及一条从起始顶点到结束顶点的边），每个优先级限制条件都对应着一条边
+  // s -> 0(任务的起始顶点) ->(边的权重41) 0(任务的结束顶点) ->(这个边的权重为0) t
+
+  // 这里实现的任务调度问题的关键路径方法将问题归约为寻找无环加权有向图的最长路径问题
+  // 它会根据任务调度问题的描述用关键路径的方法构造一幅加权有向图（且必然是无环的），然后使用AcyclicLP（请见命题T）找到图中的最长路径树，最后打印出各条最长路径的长度，也就正好是每个任务的开始时间。
+
+  // 命题U。解决优先级限制下的并行任务调度问题的关键路径法所需的时间为线性级别。
+
+
+  // Dijkstra算法只适用于正（或零）权重的边
+
+
+  // 一般加权有向图中的最短路径问题
+  // 刚才讨论过的最后期限限制下的任务调度问题告诉我们负权重的边并不仅仅是一个数学问题。相反，它能够极大地扩展解决最短路径问题的模型的应用范围
+  // 负权重含有环的demo
+  var tinyEWGDn = new EdgeWeightedDigraph(8);
+  tinyEWGDn.addEdge(new DirectedEdge(4, 5, 0.35));
+  tinyEWGDn.addEdge(new DirectedEdge(5, 4, 0.35));
+  tinyEWGDn.addEdge(new DirectedEdge(4, 7, 0.37));
+  tinyEWGDn.addEdge(new DirectedEdge(5, 7, 0.28));
+  tinyEWGDn.addEdge(new DirectedEdge(7, 5, 0.28));
+  tinyEWGDn.addEdge(new DirectedEdge(5, 1, 0.32));
+  tinyEWGDn.addEdge(new DirectedEdge(0, 4, 0.38));
+  tinyEWGDn.addEdge(new DirectedEdge(0, 2, 0.26));
+  tinyEWGDn.addEdge(new DirectedEdge(7, 3, 0.39));
+  tinyEWGDn.addEdge(new DirectedEdge(1, 3, 0.29));
+  tinyEWGDn.addEdge(new DirectedEdge(2, 7, 0.34));
+  tinyEWGDn.addEdge(new DirectedEdge(6, 2, -1.20));
+  tinyEWGDn.addEdge(new DirectedEdge(3, 6, 0.52));
+  tinyEWGDn.addEdge(new DirectedEdge(6, 0, -1.40));
+  tinyEWGDn.addEdge(new DirectedEdge(6, 4, -1.25));
+
+
+  // 负权重的环
+  // 我们只要围着这个环兜圈子就能得到权重任意短的路径！注意，有向环的所有边的权重并不一定都必须是负的，只要权重之和是负的即可。
+  // 定义。加权有向图中的负权重环是一个总权重（环上的所有边的权重之和）为负的有向环。
+
+  // 现在，假设从s到可达的某个顶点v的路径上的某个顶点在一个负权重环上。在这种情况下，从s到v的最短路径是不可能存在的，因为可以用这个负权重环构造权重任意小的路径
+  // 换句话说，在负权重环存在的情况下，最短路径问题是没有意义的，
+
+  // 贝尔曼福特
+  // 命题X（Bellman-Ford算法）。在任意含有V个顶点的加权有向图中给定起点s，从s无法到达任何负权重环，以下算法能够解决其中的单点最短路径问题：将distTo[s]初始化为0，其他distTo[]元素初始化为无穷大。以任意顺序放松有向图的所有边，重复V轮。
+  // 命题W（续）。Bellman-Ford算法所需的时间和EV成正比，空间和V成正比。
+  // 证明。在每一轮中算法都会放松E条边，共重复V轮。
+
+  // 这个方法非常通用，因为它没有指定边的放松顺序。下面将注意力集中在一个通用性稍逊的方法上，其中只放松从任意顶点指出的所有边（顺序任意），以下代码说明了这种方法的简洁性：
+  // for(var pass = 0; pass < G.V(); pass++) {
+  //   for(var v = 0; v < G.V(); v++) {
+  //     for (var e = G.Adj(v).first; e != null; e = e.next) {
+  //       relax(e)
+  //     }
+  //   }
+  // }
+
+  // 基于队列的Bellman-Ford算法
+  // 适用于一般情况的经典Bellman-Ford算法，其中图可以含有环，边的权重也可以是负值。我们还需要算法来找出负权重的环，以及不含有这种环的加权有向图中的最短路径。
+  // 其实，根据经验我们很容易知道在任意一轮中许多边的放松都不会成功：只6有上一轮中的distTo[]值发生变化的顶点指出的边才能够改变其他distTo[]元素的值
+  // 为了记录这样的顶点，我们使用了一条FIFO队列
+
+  // 贝尔曼福特算法的实现
+  // 根据这些描述实现Bellman-Ford5算4法-＞5所需的代码非常少，如算法4.11所示。它基于以下两种其他的数据结构：
+  // ❏一条用来保存即将被放松的顶点的队列queue；
+  // ❏一个由顶点索引的boolean 0数组6-＞o0nQ[]，用来指示顶点是否已经存在于队列中，以防止将顶点重复插入队列
+  // 步骤：
+  // 首先，将起点s加入队列中，然后进入一个循环，其中每次都从队列中取出一个顶点并将其放松
+  // 要将一个顶点插入队列，需要修改4.4.2.5节框注“边的松驰”中relax()方法的实现，以便将被成功放松的边所指向的顶点加入队列中
+  // 这些数据结构能够保证：
+  // ❏队列中不出现重复的顶点；
+  // ❏在某一轮中，改变了edgeTo[]和distTo[]的值的所有顶点都会在下一轮中处理。
+
+  // Bellman-Ford算法中的放松操作
+  // relax(G, v) {
+  //   for (var e = G.Adj(v).first; e != null; e = e.next) {
+  //     // 找到从v指出的边e的顶点
+  //     var w = e.val.to();
+  //     if (this.distTo[w] > this.distTo[v] + e.val.Weight()) {
+  //       // 出现松弛操作
+  //       this.distTo[w] = this.distTo[v] + e.val.Weight();
+  //       // 更新到w的边
+  //       this.edgeTo[w] = e.val;
+  //       // 如果改变了edgeTo和distTo的值的所有顶点都会在下一轮的处理中
+  //       // 队列中防止重复的点出现
+  //       if (!this.onQ[w]) {
+  //         // queue.enqueue(w)，将w进入队列
+  //         this.queue.push(w);
+  //         // 防止队列里有重复的
+  //         this.onQ[w] = true;
+  //       }
+  //     }
+  //     if (this.cost++ % this.G.V() == 0) {
+  //       // 寻找负循环
+  //       this.findNegativeCycle();
+  //     }
+  //   }
+  // }
+  // 要完整地实现该算法，我们就需要保证在V轮后算法能够终止。实现它的一种方法是显式记录放松的轮数。
+  // 我们的实现BellmanFordSP（算法4.11）使用了另一种方法，将会在4.4.6.8节详述：它会在有向图的edgeTo[]中检测是否存在负权重环，如果找到则结束运行。
+  // 命题Y。对于任意含有V个顶点的加权有向图和给定的起点s，在最坏情况下基于队列的Bellman-Ford算法解决最短路径问题（或者找到从s可达的负权重环）所需的时间与EV成正比，空间和V成正比。
+
+  // 算法4.11基于队列的Bellman-Ford算法
+  
+  // 寻找负权重环
+  // 在BellmanFordSP的构造函数运行之后，命题Y说明在将所有边放松V轮之后当且仅当队列非空时有向图中才存在从起点可达的负权重环。
+  // 如果是这样，edgeTo[]数组所表示的子图中必然含有这个负权重环
+  // 因此，要实现negativeCycle()，会根据edgeTo[]中的边构造一幅加权有向图并在该图中检测环
+  // 我们会使用并修改4.2节中的DirectedCycle类(EdgeWeightedDirectedCycle)来在加权有向图中寻找环
+  // 这种检查的成本分为以下几个部分。
+  // ❏添加一个变量cycle和一个私有函数findNega-tiveCycle()。如果找到负权重环，该方法会将cycle的值设为含有环中所有边的一个迭代器（如果没有找到则设为null）。
+  // ❏每调用V次relax()方法后即调用findNegati-veCycle()方法。
+  // 这种方法能够保证构造函数中的循环必然会终止
+  // 用例可以调用hasNegativeCycle()来判断是否存在从起点可达的负权重环（并用negativeCycle()来获取这个环）
+
+
+  // 个人理解：通常情况下的贝尔曼福特是v个顶点，e条边，从0到v-1，总共v轮，每轮都对relax所有的边，所以最坏的情况时间复杂度就是ev。
+  // 也就是每一轮中算法都会放松e条边，共重复v轮
+  // 但是根据经验我们很容易直到在任意一轮中许多便的放松都不会成功，只有上一轮中的distTo值发生变化的顶点指出的边才能够改变其他distTo元素的值。
+  // 为了记录这样的顶点，我们使用了一条fifo队列。
+  class BellmanFordSP {
+    constructor(G, s) {
+      this.G = G;
+      this.s = s; // 起点
+
+      // relax()的调用次数
+      this.cost = 0;
+      // edgeTo中是否有负权重环
+      this.cycle = null;
+
+      // 从起点到某个顶点的路径
+      // distTo数组保存的是距离，初始值为无穷大，distTo[s]为0
+      // 也就是没有到达的点都是无穷大
+      this.distTo = new Array(this.G.V()).fill(Infinity);
+      this.distTo[s] = 0.0;
+      // 从起点到某个顶点的最后一条边
+      // edgeTo数组保存的是边
+      // 从s到各个顶点的v的最短路径存放的边的数组
+      this.edgeTo = new Array(this.G.V()).fill(null);
+      // 该顶点是否存在于队列中
+      this.onQ = new Array(this.G.V()).fill(false);
+      // 正在被放松的顶点
+      this.queue = []; // 队列
+      // 将起点s放入到队列里
+      this.queue.push(s);
+      // 标记s在onQ中是true
+      this.onQ[s] = true;
+
+      // 开启while循环，循环条件queue队列不为空，并且没有环
+      while (this.queue.length && !this.hasNegativeCycle()) {
+        console.log(this.queue)
+        // 出队
+        // int v = queue.dequeue()
+        // 拿出来第一个元素
+        var v = this.queue.shift();
+        // 标记v在onQ为false
+        this.onQ[v] = false;
+        // 对v进行放松
+        this.relax(this.G, v);
+      }
+    }
+
+    // 对点的放松
+    // Bellman-Ford算法的实现修改了relax()方法，将被成功放松的边指向的所有顶点加入到一条FIFO队列中（队列中不出现重复的顶点）并周期性地检查edgeTo[]表示的子图中是否存在负权重环（请见正文）。
+    relax(G, v) {
+      for (var e = G.Adj(v).first; e != null; e = e.next) {
+        // 找到从v指出的边e的顶点
+        var w = e.val.to();
+        if (this.distTo[w] > this.distTo[v] + e.val.Weight()) {
+          // 出现松弛操作
+          this.distTo[w] = this.distTo[v] + e.val.Weight();
+          // 更新到w的边
+          this.edgeTo[w] = e.val;
+          // 如果改变了edgeTo和distTo的值的所有顶点都会在下一轮的处理中
+          // 队列中防止重复的点出现
+          if (!this.onQ[w]) {
+            // queue.enqueue(w)，将w进入队列
+            this.queue.push(w);
+            // 防止队列里有重复的
+            this.onQ[w] = true;
+          }
+        }
+        // this.cost++ % this.G.V()这个是先 this.cost % this.G.V()，然后再this.cost++
+        // 每次调用V次relax()方法后即调用findNegativeCycle()方法
+        // 其实还可以这么理解，this.cost，从0开始对应的顶点0，虽然不见得是一定从s为0开始，
+        // 比如有三个顶点，第一次掉完0++ => 1，第二次cost为1，然后1++ => 2，第三次cost为2，然后2++ ，调用完三个点后cost为3，
+        // 如果有环，那么第四次调用cost为3，然后cost++ % v等于0，然后cost变为4
+
+        // 负权重环的检测实现BellmanFordSP会检测负权重环来避免陷入无限的循环中
+        // 在BellmanFordSP的构造函数运行之后，命题Y说明在将所有边放松V轮之后当且仅当队列非空时有向图中才存在从起点可达的负权重环
+        // 如果是这样，edgeTo[]数组所表示的子图中必然含有这个负权重环
+        // 因此，要实现negativeCycle()，会根据edgeTo[]中的边构造一幅加权有向图并在该图中检测环
+        // 这种检查的成本分为以下几个部分。
+        // ❏添加一个变量cycle和一个私有函数findNega-tiveCycle()。如果找到负权重环，该方法会将cycle的值设为含有环中所有边的一个迭代器（如果没有找到则设为null）。
+        // !!!!!❏每调用V次relax()方法后即调用findNegati-veCycle()方法。
+        if (this.cost++ % this.G.V() == 0) {
+          // ❏每调用V次relax()方法后即调用findNegati-veCycle()方法。
+          // 这里第一次遍历会进来，因为0%x = 0
+          // 寻找负循环  
+          this.findNegativeCycle();
+        }
+      }
+    }
+
+    // 返回负权重环
+    negativeCycle() {
+      return this.cycle;
+    }
+
+    // 是否含有负权重环
+    hasNegativeCycle() {
+      return this.cycle != null;
+    }
+
+    // 得到负权重环（如果没有则返回null）
+    findNegativeCycle() {
+      // 找到edgeTo数组得长度
+      var V = this.edgeTo.length;
+      // 以v为顶点的个数创建一副加权有向图
+      var spt = new EdgeWeightedDigraph(V);
+      // 遍历所有的顶点，如果edgeTo[v]有边，不为null，就添加到spt这个新的图里面
+      for(var v = 0; v < V; v++) {
+        if (this.edgeTo[v] != null) {
+          spt.addEdge(this.edgeTo[v]);
+        }
+      }
+      // console.log(spt, this.edgeTo)
+      // 创建一个检测加权有向图是否有环的对象，将spt放进去检测
+      var cf = new EdgeWeightedDirectedCycle(spt);
+      // console.log(cf)
+      // 对贝尔曼福特对象的cycle赋值
+      this.cycle = cf.cycle;
+    }
+
+    // 最短路径树的距离
+    DistTo(v) {
+      return this.distTo[v];
+    }
+
+    // 是否存在从顶点s到v的路径
+    hasPathTo(v) {
+      return this.distTo[v] < Infinity;
+    }
+
+    // 从顶点s到v的路径，如果不存在则为null
+    pathTo(v) {
+      if (!this.hasPathTo(v)) return null;
+      // 定义一个栈，先进后出，上面例子，先进的3->6所以他是最后一个出来
+      var path = [];
+      for (var e = this.edgeTo[v]; e != null; e = this.edgeTo[e.from()]) {
+        path.push(e);
+      }
+      return path;
+    }
+  }
+
+  // 基于队列的Bellman-Ford算法能够准确有效地解决最短路径问题并且在实际中被广泛应用，甚至包括正权重的情况
+  // 负权重的边
+
+  // 测试贝尔曼福特
+  console.log('-------------------------------------------------------------------------')
+  console.log('贝尔曼福特')
+  var bf1 = new BellmanFordSP(tinyEWGDn, 0);
+  console.log(bf1)
+  var tinyEWGDn2 = new EdgeWeightedDigraph(8);
+  tinyEWGDn2.addEdge(new DirectedEdge(4, 5, 0.35));
+  tinyEWGDn2.addEdge(new DirectedEdge(5, 4, -0.66));
+  tinyEWGDn2.addEdge(new DirectedEdge(4, 7, 0.37));
+  tinyEWGDn2.addEdge(new DirectedEdge(5, 7, 0.28));
+  tinyEWGDn2.addEdge(new DirectedEdge(7, 5, 0.28));
+  tinyEWGDn2.addEdge(new DirectedEdge(5, 1, 0.32));
+  tinyEWGDn2.addEdge(new DirectedEdge(0, 4, 0.38));
+  tinyEWGDn2.addEdge(new DirectedEdge(0, 2, 0.26));
+  tinyEWGDn2.addEdge(new DirectedEdge(7, 3, 0.39));
+  tinyEWGDn2.addEdge(new DirectedEdge(1, 3, 0.29));
+  tinyEWGDn2.addEdge(new DirectedEdge(2, 7, 0.34));
+  tinyEWGDn2.addEdge(new DirectedEdge(6, 2, 0.40));
+  tinyEWGDn2.addEdge(new DirectedEdge(3, 6, 0.52));
+  tinyEWGDn2.addEdge(new DirectedEdge(6, 0, 0.58));
+  tinyEWGDn2.addEdge(new DirectedEdge(6, 4, 0.93));
+  var bf2 = new BellmanFordSP(tinyEWGDn2, 0);
+  console.log(bf2)
+  console.log('-------------------------------------------------------------------------')
+</script>
+
+</html>

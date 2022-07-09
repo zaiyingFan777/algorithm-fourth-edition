@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  
+</body>
+<script>
+  // 判断一个字符串是否是回文字符串
+  // 思路：首先的到字符串的长度N，循环从0到Math.floor(N/2)（ps：取不到Math.floor(N/2)这个值），对比i 与 N - 1 - i是否相等，回文串是对称的因此循环一半长度即可
+  /**
+   * @param {string} s
+   * @return {boolean}
+   */
+  var isPalindrome = function(s) {
+    var N = s.length;
+    for(var i = 0; i < Math.floor(N / 2); i++) {
+      if (s.charAt(i) != s.charAt(N - 1 - i)) {
+        // 如果对称位置有不相等的则return false
+        return false;
+      }
+    }
+    return true;
+  }
+  console.log(isPalindrome('abba'));  // true
+  console.log(isPalindrome('abbc'));  // false
+  console.log(isPalindrome('abc'));  // false
+  console.log(isPalindrome('aba'));  // true
+  console.log(isPalindrome('ab'));   // false
+  console.log(isPalindrome('aa'));   // true
+  console.log(isPalindrome('a'));    // true
+</script>
+</html>

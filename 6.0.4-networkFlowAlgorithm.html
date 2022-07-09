@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+
+</body>
+<script>
+  // 怎样配置所有开关才能使从入口到出口的流量最大化？我们可以直接用只含有一个起点和一个终点的加权有向图构造出这个问题的模型
+  // 图中的边对应的是输油管道，顶点对应的是配有能够控制原油走向和流量的开关结点，边的权重对应的是管道的容量
+  // 6.0.4网络流算法
+  // 6.0.4.1 物理模型
+  // 6.0.4.2 定义
+  // 定义。一个流量网络是一张边的权重（这里称为容量）为正的加权有向图。一个st-流量网络有两个已知的顶点，即起点s和终点t。
+  // 有时我们会认为某些边的容量是无限的，或者说是没有容量限制的。这表示不会将其中的流量和它的容量进行比较，或者它的容量必然比所有流量都大。
+  // 我们将流向一个顶点的总流量（所有指向该顶点的边中的流量之和）称为该顶点的流入量，流出一个顶点的总流量（由该顶点指出的所有边中的流量之和）称为该顶点的流出量，而两者之差（流入量减去流出量）则为称为该顶点的净流量。为了简化讨论，我们假设没有从t指出的边或是指向s的边。
+
+  // 定义。st-流量网络中的st-流量配置是由一组和每条边相关联的值组成的集合，这个值被称为边的流量。如果所有边的流量均小于边的容量且满足每个顶点的局部平衡（即净流量均为零，s和t除外），那么就称这种流量配置方案是可行的。
+  // 最大st-流量。给定一个st-流量网络，找到一种st-流量配置，使得从s到t的流量最大化。
+  // 为了简洁，我们将这样的流量配置称为最大流量，那么在网络中寻找这种配置的问题就是一个最大流量问题
+
+  // 6.0.4.3 API
+  // 流量是有方向的，但FlowEdge并不是基于DirectedEdge，因为它还需要解决下面将要描述的一个更加抽象的剩余网络问题。我们需要使每条边都出现在它的两个顶点的邻接表中才能实现剩余网络
+  // 剩余网络能够增减流量并检测一条边是否已经饱和（无法再增大流量）或者是否为空（无法再减小流量）
+
+  // 有了这些API之后最大流量算法的目标就很明确了：构造一个网络，计算所有边中保存流量的实例变量的值并使得网络中的流量最大化。上一页框注所示的是检验一个流量配置方案是否可行的用例代码，
+  // 一般会将这种检查作为最大流量算法的最后一步。
+  // 表6.0.4 流量网络中的边的API
+  // public class FlowEdge
+  //              FlowEdge(int v, int w, double cap)
+  //          int from()                                // 这条边的起始顶点
+  //          int to()                                  // 这条边的目的顶点
+  //          int other(int v)                          // 边的另一个顶点
+  //       double capacity()                            // 边的容量
+  //       double flow()                                // 边中的流量
+  //       double residualCapacityTo(int v)             // v的剩余容量
+  //       double addResidualFlowTo(intv, double delta) // 将v的流量增加delta
+  //       String toString()                            // 对象的字符串表示
+
+  // 表6.0.5 流量网络的API
+  // public class FlowNetwork
+  //              FlowNetwork(int V)                    // 创建一个含有V个顶点的空网络
+  //              FlowNetwork(In in)                    // 从输入流中构造流量网络
+  //          int V()                                   // 顶点总数
+  //          int E()                                   // 边的总数
+  //         void addEdge(FlowEdge e)                   // 向流量网络中添加e
+  // Interable<FlowEdge>  => IF
+  //           IF adj(int v)                            // 从v指出的边
+  //           IF edges()                               // 流量网络中的所有边
+  //       String toString()                            // 对象的字符串表示 
+
+  // !!!!!我们需要使每条边都出现在他的两个顶点的邻接表中才能实现剩余网络。
+
+  // 6.0.4.4 Ford-Fulkerson算法
+  // 它是一种沿着由起点到终点的路径逐步增加流量的通用方法，因此它也是同类算法的基础。但它也被称为增广路径算法
+  // 考虑一个st-流量网络中的任意一条从起点到终点的有向路径。假设x为该路径上的所有边中未使用容量的最小值。那么只需将所有边的流量增大x即可将网络中的总流量至少增大x。
+  // 反复这个过程，就得到了第一种计算网络中的流量分配方法：找到另一条路径，增大路径中的流量，如此反复，直到所有从起点到终点的路径上至少有一条边是饱和的。（这样在这条路径上就无法继续增大流量了。
+
+  // 为了改进算法使之总是能够找到最大流量，就要用另一种更加通用的方式增大网络中的流量，即将依据变为网络所对应的无向图中从起点到终点的路径
+
+  // 在这样的路径中，当沿着路径从起点向终点前进时，经过某条边时的方向可能和流量的方向相同，那这条边即为正向边；也可能和流量的方向相反，那这条边即为逆向边
+  // 现在，对于任意非饱和正向边和非空逆向边，我们可以通过增加正向边的流量和降低逆向边的流量来增加网络中的总流量
+  // 流量的增量受路径上的所有正向边的未使用容量最小值和所有逆向边的流量的限制。这样的一条路径被称为增广路径
+  // 在新的流量配置中，路径中至少有一条正向边达到了饱和，或是至少有一条逆向边为空。以上所述的过程就是经典的Ford-Fulkerson算法（增广路径算法）的基础
+
+  // Ford-Fulkerson最大流量算法。网络中的初始流量为零，沿着任意从起点到终点（且不含有饱和的正向边或是空逆向边）的增广路径增大流量，直到网络中不存在这样的路径为止。
+
+
+  // 6.0.4.5 最大流-最小切分[插图]定理
+  // 为了证明Ford-Fulkerson算法的任意实现所计算得到的流量确实是最大流量，需要证明一个叫做最大流-最小切分的关键定理
+  // 顾名思义，定理的基础是网络中的流量和切分的关系，因此需要先定义和切分有关的名词
+  // 图的切分是将所有顶点分为两个不相交的集合，而一条横切边则是连接分别存在于两个集合中的两个顶点的一条边。对于流量网络，我们将它们的定义提炼如下。
+  // 定义。st-切分是一个将顶点s和顶点t分配于不同集合中的切分。
+
+  // 在一个st-切分中，每条横切边要么是一条由含有s的集合指向含有t的集合的st-边，要么是一条反方向的ts-边。有时我们将st-边的集合称为一个切分集。
+  // 在流量网络中，一个st-切分的容量为该切分的st-边的容量之和，st-切分的跨切分流量（flow across）是切分的所有st-边的流量之和与所有ts-边的流量之和的差
+  // 在网络中删去st-切分的所有st-边（即切分集）将会切断所有从s到t的路径
+
+  // 最小st-切分。给定一个st-网络，找到容量最小的st-切分。简单起见，我们将这样的切分称为最小切分，而将在网络中找到它的问题称为最小切分问题。
+  // 流量和切分的以下基本关系即可证明st-流量网络中的局部平衡即意味着整个网络的全局平衡（推论一），并且可以得到任意st-流量值的上界（推论二）。
+
+  // 命题E。对于任意st-流量网络，每种st-切分中的跨切分流量都和总流量的值相等。
+  // 证明。设Cs为含有顶点s的集合，Ct为含有顶点t的集合。对Ct使用归纳法：当Ct仅含有t时该命题成立，若将一个顶点由Cs移动到Ct，则该结点处的局部平衡意味着可以一直保持该性质。因此，通过移动顶点可以得到任意st-切分。
+  // 推论。s的流出量等于t的流入量（即st-流量网络的值）。
+
+  // 命题F（最大流量——最小切分定理）。令f为一个st-流量网络，以下三种条件是等价的：i存在某个st-切分，其容量和f的流量相等；ii f达到了最大流量；iii f中已经不存在任何增广路径。
+  // 证明。根据命题E的推论，我们可以由条件i得到条件ii。因为增广路径的存在意味着存在某个流量更大的网络配置，这与f的最大性相冲突，因此由条件ii也可以得到条件iii。
+  // 令Cs为由s通过所有不含有任何饱和正向边或空逆向边的无向路径可达的所有顶点组成的集合，令Ct为其余的顶点的集合。t必然存在于Ct中，因此（Cs, Ct）为一个st-切分。它的切分集完全由饱和正向边和空逆向边组成
+  // 该切分的跨切分流量和它的容量相等（因为所有正向边都是饱和的，而所有逆向边都是空的），即等于网络中的总流量（由命题E可得）。
+
+  // 推论（完整性）。当所有容量均为整数时，存在一个整数值的最大流量，而Ford-Fulkerson算法能够找出这个最大值。
+  // 证明。每条增广路径都会将总流量增大某个正整数值（正向边中未使用容量的最小值和逆向边的容量都是正整数）。
+
+  // 6.0.4.6 剩余网络
+  // 通用的Ford-Fulkerson算法并没有指定寻找增广路径的方法。如何才能找到不含有饱和正向边和空逆向边的路径呢？为此，我们给出如下定义。
+  // 定义。给定某个st-流量网络和其st-流量配置，这种配置下的剩余网络中的顶点和原网络相同。原网络中的每条边都对应着剩余网络中的1～2条边。它的定义如下：
+  // 对于原网络中的每条从顶点v到w的边e，令fe表示它的流量、 ce表示它的容量。如果fe为正，将边w→v加入剩余网络且容量为fe；
+  // 如果fe小于ce，将边v→w加入剩余网络且容量为ce-f
+
+  // 如果从v到w的边e为空（即fe为0），剩余网络中就只有一条容量为ce的边v→w与之对应
+  // 如果该边饱和（即fe等于ce），剩余网络就只有一条容量为fe的边w→v与之对应
+  // 如果它既不为空，也不饱和，那么剩余网络中将含有相应容量的v→w和w→v。
+
+  // 乍一看，剩余网络有些让人困惑，因为与流量对应的边的方向却和流量本身相反。正向边表示的是剩余的容量（即如果选择从这条边通行所能增长的流量）；逆向边表示了实际流量（即如果选择从这条边通行将会减少的流量）
+
+  // 包，这里用链表实现，a放在包里后，再放b，b在a上面 链表的表示就是b->a
+  class Node {
+    constructor(val) {
+      this.val = val;
+      this.next = null;
+    }
+  }
+  class Bag {
+    constructor() {
+      this.first = null;
+      this.N = 0; // Bag的长度
+    }
+
+    isEmpty() {
+      return this.first == null;
+    }
+
+    size() {
+      return this.N;
+    }
+
+    // 往包里添加
+    add(key) {
+      // 保存老的链表
+      var oldFirst = this.first;
+      // 创建一个新的结点
+      this.first = new Node(key);
+      // 把老的结点放到新的first后i面
+      this.first.next = oldFirst;
+      this.N++;
+    }
+  }
+
+  // 流量网络中的边（剩余网络）
+  class FlowEdge {
+    constructor(v, w, capacity) {
+      // 边的起点
+      this.v = v;
+      // 边的终点
+      this.w = w;
+      // 容量
+      this.capacity = capacity;
+      // 流量
+      this.flow = 0;
+    }
+
+    // from
+    from() {
+      return this.v;
+    }
+
+    // to
+    to() {
+      return this.w;
+    }
+
+    // 容量
+    Capacity() {
+      return this.capacity;
+    }
+
+    // 流量
+    Flow() {
+      return this.flow;
+    }
+
+    // 另一个顶点
+    // 在已知一个顶点v时，用例可以使用other(v)来得到边的另一个顶点。
+    // 我们可以使用from()和other()方法处理两个方向的边：e.other(v)可以返回e的两个顶点中和v相对的另一个顶点
+    other(vertex) {
+      if (vertex === this.v) {
+        return this.w;
+      } else if (vertex === this.w) {
+        return this.v;
+      } else {
+        console.error('Inconsistent edge')
+      }
+    }
+
+    // residualCapacityTo()和addRresidualFlowTo()方法实现了剩余网络
+    // 剩余网络能够增减流量并检测一条边是否已经饱和（无法再增大流量）或者是否为空（无法再减小流量）。这些抽象是通过residualCapacity()和addResidualFlow()方法实现的
+    // 剩余网络使得我们可以通过图中的搜索算法寻找增广路径，这是因为在剩余网络中所有从起点到终点的路径都是原流量网络中的一条增广路径。沿着增广路径增大流量意味着修改剩余网络
+    // v的剩余容量
+    residualCapacityTo(vertex) {
+      if (vertex === this.v) {
+        // 向后（逆向边：实际流量）w->v 返回flow
+        return this.flow;
+      } else if (vertex === this.w) {
+        // 向前（正向边：剩余容量）v->w 返回capacity与flow之差
+        return this.capacity - this.flow;
+      } else {
+        console.error('Inconsistent edge')
+      }
+    }
+
+    // 将v的流量增加delta vertex：顶点
+    // 从v->w 则是增加this.flow
+    // 从w->v，则是减少this.flow
+    addResidualFlowTo(vertex, delta) {
+      if (vertex === this.v) {
+        // 向后
+        this.flow -= delta;
+      } else if (vertex === this.w) {
+        // 向前
+        this.flow += delta;
+      } else {
+        console.error('Inconsistent edge')
+      }
+    }
+  }
+
+  // 流量网络
+  class FlowNetwork {
+    constructor(vertices) {
+      // 顶点
+      this.vertices = vertices;
+      // 边
+      this.edges = 0;
+      // 邻接表采用Bag对象
+      // 创建邻接表，并初始化
+      // [链表1，链表2，链表3]，这里下标对应了点，从0开始，item就是点的邻接表链表
+      this.adjacent = new Array(this.vertices).fill(null).map(item => new Bag());
+    }
+
+    // 顶点总数
+    V() {
+      return this.vertices;
+    }
+
+    // 边的总数
+    E() {
+      return this.edges;
+    }
+
+    // 向流量网络中添加e: FlowEdge
+    AddEdge(e) {
+      var v = e.from();
+      var w = e.to();
+      // 在流量网络里虽然也是有向图，但是为了通过正向的v-w为剩余流量
+      // w-v为真实流量
+      this.adjacent[v].add(e);
+      this.adjacent[w].add(e);
+      this.edges++;
+    }
+
+    // 返回一个点的邻接表
+    Adjacent(v) {
+      return this.adjacent[v];
+    }
+
+    // 返回边
+    Edges() {
+      var edges = new Bag();
+      // 遍历所有的顶点
+      for (var v = 0; v < this.vertices; v++) {
+        // 遍历每个顶点的邻接表
+        for (var w = this.Adjacent(v).first; w != null; w = w.next) {
+          if (w.to() != v) {
+            // 排除反向边
+            edges.add(edge);
+          }
+        }
+      }
+    }
+  }
+  console.log('----------------------------------------------------------------')
+  console.log('流量网络')
+  var fn = new FlowNetwork(6);
+  fn.AddEdge(new FlowEdge(0, 1, 2.0));
+  fn.AddEdge(new FlowEdge(0, 2, 3.0));
+  fn.AddEdge(new FlowEdge(1, 3, 3.0));
+  fn.AddEdge(new FlowEdge(1, 4, 1.0));
+  fn.AddEdge(new FlowEdge(2, 3, 1.0));
+  fn.AddEdge(new FlowEdge(2, 4, 1.0));
+  fn.AddEdge(new FlowEdge(3, 5, 2.0));
+  fn.AddEdge(new FlowEdge(4, 5, 3.0));
+  console.log(fn)
+  console.log('----------------------------------------------------------------')
+
+  // 算法6.3最短增广路径的Ford-Fulkerson最大流量算法。
+  // 这段Ford-Fulkerson算法的实现会在剩余网络中寻找最短增广路径，找出路径上的瓶颈容量并增大该路径上的流量，如此往复直至不再存在从起点到终点的增广路径为止。
+  // 局部平衡条件：流入结点的流量等于流出结点的流量
+  class FordFulkerson {
+    // FlowNetwork G, int s, int t
+    constructor(G, s, t) {
+      // 在剩余网络中是否存在从s到v的路径？
+      // this.marked = [];
+      // 从s到v的最短路径上的最后一条边
+      // this.edgeTo = [];
+      // 标记路径已知的顶点
+      this.marked = null;
+      // 路径上的最后一条边
+      this.edgeTo = null;
+      // 当前最大流量
+      this.value = 0;
+      // 找到从s到t的流量网络G的最大流量配置
+      while (this.hasAugmentingPath(G, s, t)) {
+        console.log(this.edgeTo, this.marked)
+        // 利用所有存在的增广路径
+        // 计算当前的瓶颈容量
+        var bottle = Infinity;
+        // 从edgeTo[v]中找到一条路径并找到最小剩余容量的边
+        for (var v = t; v != s; v = this.edgeTo[v].other(v)) {
+          bottle = Math.min(bottle, this.edgeTo[v].residualCapacityTo(v));
+        }
+        // 增大流量
+        // 沿着这条路径增加容量，直到有一个边是饱和的或者反向边为空的时候
+        for (var v = t; v != s; v = this.edgeTo[v].other(v)) {
+          this.edgeTo[v].addResidualFlowTo(v, bottle);
+          console.log(this.edgeTo[v])
+        }
+        this.value += bottle;
+        console.log(this.value, bottle)
+      }
+    }
+
+    // 返回最大流量
+    Value() {
+      return this.value;
+    }
+
+    InCut(v) {
+      return this.marked[v];
+    }
+
+    // 在剩余网络中通过广度优先搜索寻找增广路径
+    hasAugmentingPath(G, s, t) {
+      // 标记路径已知的顶点
+      this.marked = new Array(G.V()).fill(false);
+      // 路径上的最后一条边
+      this.edgeTo = new Array(G.V()).fill(null);
+      // 队列。先进先出，进队列Push，出队列shift(从开头截取)
+      var q = [];
+      // 标记七点
+      this.marked[s] = true;
+      // 并将起点入列
+      q.push(s);
+      // 循环终止条件为队列为空
+      while(q.length) {
+        // 出列
+        var v = q.shift();
+        // 遍历v周边的边
+        for (var e = G.Adjacent(v).first; e != null; e = e.next) {
+          // 找到另外一个点w
+          var w = e.val.other(v);
+          // 找到没有被标记以及有容量的边
+          if (e.val.residualCapacityTo(w) > 0 && !this.marked[w]) {
+            // 在剩余网络中对于任意一条连接到一个未标记的顶点的边
+            // 保存路径上的最后一条边
+            this.edgeTo[w] = e.val;
+            // 标记w，因为路径现在是已知的了
+            this.marked[w] = true;
+            // 将他入列
+            q.push(w);
+          }
+        }
+      }
+      return this.marked[t];
+    }
+  }
+
+  function main() {
+    // 创建流量网络
+    var G = fn;
+    var s = 0, t = G.V() - 1;
+    // 创建福特富尔克森实例
+    var maxFlow = new FordFulkerson(G, s, t);
+    console.log(maxFlow)
+    console.log('Max flow from ' + s + ' to ' + t);
+    // 遍历所有顶点
+    for(var v = 0; v < G.V(); v++) {
+      // 遍历顶点对应的边
+      for(var e = G.Adjacent(v).first; e != null; e = e.next) {
+        if ((v === e.val.from()) && e.val.Flow() > 0) {
+          console.log(" " + JSON.stringify(e.val));
+        } 
+      }
+      console.log('Max flow value = ' + maxFlow.Value());
+    }
+  }
+  main()
+
+  // 命题G。最短增广路径的Ford-Fulkerson最大流量算法在处理含有V个顶点和E条边的流量网络时找到的增广路径最多为EV/2条。
+</script>
+
+</html>

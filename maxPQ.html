@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+
+</body>
+<script>
+  // 注意：！！！！！
+  // 多叉堆
+  // 完全三叉堆：对于数组中1至N的N个元素，位置k的结点大于等于位于3k-1、3k和3k+1的结点，小于等于位于[（k+1）/3]（需要向下取整）的结点。
+
+  // 优先队列
+  // 堆的算法：解决了我们在本节开始时提出的一个基本问题：它对优先队列API的实现能够保证插入元素和删除最大元素这两个操作的用时和队列的大小仅成对数关系。
+  // 我们用长度为N+1的私有数组pq[]来表示一个大小为N的堆，我们不会使用pq[0]，堆元素放在pq[1]至pq[N]中。
+  // 堆的操作会首先进行一些简单的改动，打破堆的状态，然后再遍历堆并按照要求将堆的状态恢复。我们称这个过程叫做堆的有序化（reheapifying）。
+  // 在一个堆中，位置k的结点的父结点的位置为[k/2]，而它的两个子结点的位置则分别为2k和2k+1。
+  // 从a[k]向上一层就令k等于k/2，向下一层则令k等于2k或2k+1。
+  // 一棵大小为N的完全二叉树的高度为[lgN]。
+  // 插入元素：我们将新元素加到数组末尾，增加堆的大小并让这个新元素上浮到合适的位置
+  // 删除最大元素：我们从数组顶端删去最大的元素并将数组的最后一个元素放到顶端，减小堆的大小并让这个元素下沉到合适的位置
+
+  // 由下至上的堆有序化（上浮）的实现
+  // a为数组，k为下标
+  // function swim(a, k) {
+  //   // 轮询条件为：k > 1就是k还没有达到顶部元素以及a[k]大于父节点a[k/2]
+  //   while (k > 1 && a[Math.floor(k / 2)] < a[k]) {
+  //     // 调换位置
+  //     var temp = a[Math.floor(k / 2)];
+  //     a[Math.floor(k / 2)] = a[k];
+  //     a[k] = temp;
+  //     // 更新k的值
+  //     k = Math.floor(k / 2);
+  //   }
+  // }
+  // 由上至下的堆有序化（下沉）的实现
+  // function sink(a, k) {
+  //   var N = a.length - 1;
+  //   // 轮询的条件为k的子节点<=N就是子节点是数组最后一个元素
+  //   // 为什么是2*k <= N，< N因为是最后一个结点有右子节点，等于N就是父节点没有右子节点，左子节点就是他的最后一个元素
+  //   while (2 * k <= N) {
+  //     // 找到子节点
+  //     var j = 2 * k;
+  //     // 左子节点不是最后一个元素，并且左子节点小于右子节点
+  //     // 如果左子节点小于右子节点，那就让a[k]与右子节点去比较（找到两个子节点中左右最大的结点）
+  //     if (j < N && a[j] < a[j + 1]) {
+  //       j++;
+  //     }
+  //     // 判断k和j，如果a[k] > a[j]那就终止循环，因为a[k]比他的子节点大了
+  //     if (a[k] > a[j]) break;
+  //     // 交换元素
+  //     var temp = a[k];
+  //     a[k] = a[j];
+  //     a[j] = temp;
+  //     // 对k重新赋值
+  //     k = j;
+  //   }
+  // }
+
+  // 基于堆的优先队列
+  // 插入排序只需要在对数时间内完成
+  class MaxPQ {
+    constructor(maxN) {
+      // 基于堆的完全二叉树的数组，maxN为二叉树中结点的个数，所以我们创建数组为maxN+1，第0位元素不用，N个结点对应的下标为1，2，3...N，
+      this.pq = new Array(maxN + 1).fill(null); // 基于堆的完全二叉树
+      this.N = 0; // 存储于pq[1..N]，pq[0]没有使用
+    }
+
+    exch(i, j) {
+      var temp = this.pq[i];
+      this.pq[i] = this.pq[j];
+      this.pq[j] = temp;
+    }
+
+    swim(k) {
+      // 轮询条件为：k > 1就是k还没有达到顶部元素以及a[k]大于父节点a[k/2]
+      while (k > 1 && this.pq[Math.floor(k / 2)] < this.pq[k]) {
+        // 调换位置
+        this.exch(Math.floor(k / 2), k);
+        // 更新k的值
+        k = Math.floor(k / 2);
+      }
+    }
+
+    sink(k) {
+      while (2 * k <= this.N) {
+        // 找到子节点
+        var j = 2 * k;
+        // 左子节点不是最后一个元素，并且左子节点小于右子节点
+        // 如果左子节点小于右子节点，那就让a[k]与右子节点去比较（找到两个子节点中左右最大的结点）
+        if (j < this.N && this.pq[j] < this.pq[j + 1]) {
+          j++;
+        }
+        // 判断k和j，如果a[k] > a[j]那就终止循环，因为a[k]比他的子节点大了
+        if (this.pq[k] > this.pq[j]) break;
+        // 交换元素
+        this.exch(k, j);
+        // 对k重新赋值
+        k = j;
+      }
+    }
+
+    isEmpty() {
+      return this.N === 0;
+    }
+
+    size() {
+      return this.N;
+    }
+
+    // 插入
+    insert(v) {
+      // this.N++，从第一位开始 
+      this.pq[++this.N] = v;
+      this.swim(this.N);
+    }
+
+    // 删除最大值
+    delMax() {
+      var max = this.pq[1]; // 从根节点得到最大元素
+      // 调换位置：1和this.N，最后N--
+      // 调换位置：
+      // 先调换位置(1和N)再将this.N - 1;
+      this.exch(1, this.N--);
+      // 将数组最后一个置为null，意思就是删除
+      this.pq[this.N + 1] = null; // 防止对象游离
+      // 恢复堆的有序性
+      this.sink(1);
+      return max;
+    }
+  }
+  // [null, 3, 2, 1]
+  var testMaxPQ = new MaxPQ(3);
+  console.log(testMaxPQ, testMaxPQ.isEmpty(), testMaxPQ.size()); //[null, null, null, null] true 0
+  testMaxPQ.insert(3);
+  console.log(testMaxPQ, testMaxPQ.isEmpty(), testMaxPQ.size()); //[null, 3, null, null] false 1
+  testMaxPQ.insert(2);
+  console.log(testMaxPQ, testMaxPQ.isEmpty(), testMaxPQ.size()); //[null, 3, 2, null] false 2
+  testMaxPQ.insert(1);
+  console.log(testMaxPQ, testMaxPQ.isEmpty(), testMaxPQ.size()); //[null, 3, 2, 1] false 3
+  testMaxPQ.insert(4);
+  console.log(testMaxPQ, testMaxPQ.isEmpty(), testMaxPQ.size()); //[null, 4, 3, 1, 2] false 4
+  testMaxPQ.delMax();
+  console.log(testMaxPQ, testMaxPQ.isEmpty(), testMaxPQ.size()); //[null, 3, 2, 1, null] false 3
+  testMaxPQ.delMax();
+  console.log(testMaxPQ, testMaxPQ.isEmpty(), testMaxPQ.size()); //[null, 2, 1, null, null] false 2
+  testMaxPQ.delMax();
+  console.log(testMaxPQ, testMaxPQ.isEmpty(), testMaxPQ.size()); //[null, 1, null, null, null] false 1
+  testMaxPQ.delMax();
+  console.log(testMaxPQ, testMaxPQ.isEmpty(), testMaxPQ.size()); //[null, null, null, null, null] true 0
+
+
+
+</script>
+
+</html>

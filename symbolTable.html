@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+
+</body>
+<script>
+  // 符号表
+  // 定义。符号表是一种存储键值对的数据结构，支持两种操作：插入（put），即将一组新的键值对存入表中；查找（get），即根据给定的键得到相应的值。
+  // put(key, value)，get(key)，delete(key)，contains(key)，isEmpty()，size(表中的键值对数量)，keys(表中的所有键的集合)
+
+  // 重复的键
+  // 我们遵循一下规则：
+  // 1.每个键只对应着一个值（表中不允许存在重复的键）
+  // 2.当用例代码向表中存在的键值对和表中已有的键（及关联的值）冲突时，新的值会替代旧的值。
+  // 这些规则定义了关联数组的抽象形式。你可以将符号表想象成一个数组，键即索引，值即数组的元素。
+  // 在一个一般的数组中，键就是整型的索引，我们用它来快速访问数组的内容
+  // 一个关联数组（符号表）中，键可以是任意类型，但我们仍然可以用它来快速访问数组的内容
+
+  // 空(null)值
+  // 我们还规定不允许有空值。这个规定的直接原因是在我们的API定义中，当键不存在时get()方法会返回空,这也意味着任何不在表中的键关联的值都是空
+  // 上面规定产生两个结果：
+  // 1.我们可以用get()方法是否返回空来测试给定的键是否存在于符号表中；
+  // 2.我们可以将空值作为put()方法的第二个参数存入表中来实现删除
+
+  // 删除操作
+  // 在符号表中，删除的实现可以有两种方法：延时删除，也就是将键对应的值置为空，然后在某个时候删去所有值为空的键；或是即时删除，也就是立刻从表中删除指定的键。
+  // put(key, null)是delete(key)的一种简单的（延时型）实现。而实现（即时型）delete()就是为了替代这种默认的方案。
+
+  // 有序符号表
+  // 典型的应用程序中，键都是Comparable的对象，因此可以使用a.compareTo(b)来比较a和b两个键。
+  // put(key, value)，get(key)，delete(key)，contains(key)，isEmpty()，size(表中的键值对数量)，keys()表中的所有键的集合，已排序，min(最小的键)，max(最大的键)，floor(key)小于等于key的最大值
+  // ceiling(key)大于等于key的最小值，rank(key)小于key的键的数量，select(k)排名位k的键，deleteMin()删除最下的键，deleteMax()删除最大的键，size(lo,hi)[lo..hi]之间键的数量
+  // keys(lo, hi)[lo..hi]之间的所有键，已排序
+
+  // 时间复杂度分析
+  // !!!get: get()方法查找第一个键需要1次比较，查找第二个键需要2次比较，如此这般，平均比较次数为（1+2+…+N）/N=（N+1）/2～N/2。(平均比较次数)
+  // !!!put:向一个空表中插入N个不同的键需要 N方/2次比较（最坏情况）
+
+
+  // 顺序查找（基于无序链表）
+  // Node: 链表结点的定义
+  class Node {
+    constructor(key, val, next) {
+      this.key = key;
+      this.val = val;
+      this.next = next;
+    }
+  }
+
+  class SequentialSearchST {
+    constructor() {
+      // 链表首节点
+      this.first = null;
+      this.size = 0;
+    }
+
+    // 查找
+    get(key) {
+      // 查找给定的键，返回相关的值
+      for (var x = this.first; x != null; x = x.next) { // x = x.next是执行完下面结构体后才执行的
+        if (key === x.key) {
+          return x.val; // 命中
+        }
+      }
+      return null; // 未命中
+    }
+
+    // while循环
+    // get2(key) {
+    //   var currentNode = this.first;
+    //   while(currentNode != null) {
+    //     if (currentNode.key === key) {
+    //       return currentNode.val;
+    //     }
+    //     currentNode = currentNode.next;
+    //   }
+    //   return null;
+    // }
+
+    // 安排
+    put(key, val) {
+      if (key === null) {
+        console.error('key不能为null!!!');
+        return;
+      }
+
+      // 如果put的key对应的val为null，则删除当前key
+      if (val == null) {
+        this.delete(key);
+        return;
+      }
+
+      // 查找给定的键，找到则更新其值，否则在表中新建结点 
+      for (var x = this.first; x != null; x = x.next) {
+        // console.log(key, '~~~~')
+        if (key === x.key) {
+          x.val = val;
+          return; // 命中更新
+        }
+      }
+      this.first = new Node(key, val, this.first) // 未命中，新建节点
+      this.size++;
+    }
+
+    // put2(key, val) {
+    //   // 先查给定的键，找到更新其值，否则在表中新建结点
+    //   var currentNode = this.first;
+    //   while(currentNode != null) {
+    //     if (currentNode.key === key) {
+    //       currentNode.val = val;
+    //       return;
+    //     }
+    //     currentNode = currentNode.next;
+    //   }
+    //   // 没查到，新建结点
+    //   this.first = new Node(key, val, this.first);
+    //   this.size++;
+    // }
+
+    // 是否为空，size为0则为空
+    isEmpty() {
+      return this.size === 0;
+    }
+
+    // size
+    len() {
+      return this.size;
+    }
+
+    // contains 查到不为null返回true，查到为null返回false
+    contains(key) {
+      if (key === null) {
+        console.error('key不能为null!!!');
+        return;
+      }
+      return this.get(key) != null;
+    }
+
+    // 删除
+    delete(key) {
+      if (key === null) {
+        console.error('key不能为null!!!')
+        return;
+      }
+
+      // 判断是否为空
+      if (this.isEmpty()) {
+        console.log('为空，就没必要删除了')
+        return;
+      }
+
+      // 如果删除的是first结点
+      if (this.first.key === key) {
+        // 哪怕只有一个结点也没问题
+        this.first = this.first.next;
+        this.size--;
+        return;
+      }
+
+      for (var x = this.first; x != null; x = x.next) {
+        // 找到被删元素的前一个元素
+        if (x.next != null && x.next.key === key) {
+          // 将下一个元素删除
+          x.next = x.next.next;
+          this.size--;
+          return;
+        }
+      }
+    }
+
+    keys() {
+      var res = [];
+      for (var x = this.first; x != null; x = x.next) {
+        res.push(x.key)
+      }
+      return res;
+    }
+  }
+  // var ssST = new SequentialSearchST();
+  // console.log(ssST)
+  // ssST.put('a', 0)
+  // console.log(ssST)
+  // ssST.put('b', 1)
+  // console.log(ssST)
+  // ssST.put('a', 2)
+  // console.log(ssST)
+  // console.log(ssST.get('a'))
+  // console.log(ssST.get2('a'), ssST.get2('b')) // 2 1
+
+  // console.log('------------------------------------------------------')
+
+  // var ssST2 = new SequentialSearchST();
+  // console.log(ssST2);
+  // ssST2.put2('c', 3);
+  // console.log(ssST2);
+  // ssST2.put2('d', 4);
+  // console.log(ssST2);
+  // ssST2.put2('c', 5);
+  // console.log(ssST2);
+  // console.log(ssST2.get2('c'), ssST2.get2('d'), ssST2.get2('e')) // 2 1
+  // console.log(ssST2.get('c'), ssST2.get('d'), ssST2.get('e')) // 2 1
+
+  // var st = new SequentialSearchST();
+  // console.log(st)
+  // console.log(st.contains('a'))
+  // console.log(st.contains(null))
+  // console.log(st.get('a'))
+  // st.put('a', 1);
+  // console.log(st, st.len());
+  // st.put('b', 2);
+  // console.log(st, st.len());
+  // st.put('c', 3);
+  // console.log(st, st.len());
+  // st.put('c', null);
+  // console.log(st, st.len());
+  // console.log(st.get('a')) // 1
+  // st.put('a', 222);
+  // console.log(st.get('a')) // 222
+  // st.delete('a');
+  // console.log(st)
+  // st.delete('b');
+  // console.log(st)
+  // st.delete('b');
+  // console.log(st)
+
+  console.log('-------------------------------------------------------------')
+
+  // 二分查找（基于有序数组）
+  // 向大小为N的有序数组中插入一个新的元素在最坏情况下需要访问～2N(a[k] = a[k-1]这样是两次，总共N个数)次数组，因此向一个空符号表中插入N个元素在最坏情况下需要访问～N2次数组。
+  // 增长量级：put N, get logN, delete N , contains logN，
+  class BinarySearchST {
+    constructor() {
+      // 一个数组存储键，一个数组存储值
+      // 这里先不调整数组大小
+      this.keys = [];
+      this.vals = [];
+      // 当前结点个数，重复的会重新更新val
+      this.N = 0;
+    }
+
+    size() {
+      return this.N;
+    }
+
+    isEmpty() {
+      return this.N === 0;
+    }
+
+    get(key) {
+      if (key == null) {
+        console.error("Argument to get() cannot be null");
+        return;
+      }
+      // 如果为空返回null
+      if (this.isEmpty()) return null;
+      var i = this.rank(key);
+      // i在N内 且this.keys[i]和key相等  则返回this.vals
+      if (i < this.N && this.keys[i] == key) {
+        return this.vals[i];
+      } else {
+        return null;
+      }
+    }
+
+    // 这份实现的核心是rank()方法，它返回表中小于给定键的键的数量。
+    // rank()方法就能够精确地告诉我们到哪里去更新它的值，以及当键不在表中时将键存储到表的何处
+    // 递归的rank()保留了以下性质：
+    // ❏如果表中存在该键，rank()应该返回该键的位置，也就是表中小于它的键的数量； 假设[1,2,3]找到了3，则位置为2，小于3的个数为两个
+    // ❏如果表中不存在该键，rank()还是应该返回表中小于它的键的数量。[1,2,3,5]找4则返回3，也就是小于他的键的数量为3
+    rank(key) {
+      if (key == null) {
+        console.error("Key cannot be null");
+        return;
+      }
+      // 双指针
+      var lo = 0;
+      var hi = this.N - 1;
+      // 循环条件lo <= hi，当hi指针小于lo的时候就退出循环
+      while (lo <= hi) {
+        // 找到中间值
+        var mid = Math.floor((lo + hi) / 2);
+        // 拿到比较值
+        var comparison = key.localeCompare(this.keys[mid]);
+        if (comparison < 0) {
+          // 当key小于mid的时候
+          hi = mid - 1;
+        } else if (comparison > 0) {
+          // 当key大于mid的时候
+          lo = mid + 1;
+        } else {
+          // 当key等于mid的时候
+          return mid
+        }
+      }
+      // 没有找到返回lo
+      return lo;
+    }
+
+    // 递归版rank
+    rank2(key, lo, hi) {
+      if (hi < lo) return lo;
+      var mid = Math.floor((lo + hi) / 2);
+      var cmp = key.localeCompare(this.keys[mid]);
+      if (cmp < 0) {
+        return this.rank2(key, lo, mid - 1);
+      } else if (cmp > 0) {
+        return this.rank2(key, mid + 1, hi);
+      } else {
+        return mid;
+      }
+    }
+
+    // 安排
+    put(key, val) {
+      if (key == null) {
+        console.error("Key cannot be null");
+        return;
+      }
+
+      // 如果设置value为null，则删除这个key
+      if (val == null) {
+        this.delete(key); 
+        return;
+      }
+      // 现在keys数组里寻找key
+      var i = this.rank(key);
+      console.log(i)
+      // 如果找到的i小于size，并且keys[i]和key一致，则在vals数组里替换值
+      if (i < this.N && this.keys[i] == key) {
+        this.vals[i] = val; // 更新
+        return;
+      }
+
+      // 假设没有找到的话，从后向前遍历，每一个向后移动一位
+      // for (var k = this.N; k > i; k--) {
+      //   this.keys[k] = this.keys[k - 1];
+      //   this.vals[k] = this.vals[k - 1];
+      // }
+      // this.keys[i] = key;
+      // this.vals[i] = val;
+      // splice
+      this.keys.splice(i, 0, key);
+      this.vals.splice(i, 0, val);
+      this.N++;
+    }
+
+    contains(key) {
+      if (key == null) {
+        console.error("Argument to contains() cannot be null");
+        return;
+      }
+      return this.get(key) != null;
+    }
+
+    // 删除 
+    delete(key) {
+      if (key == null) {
+        console.error("Argument to contains() cannot be null");
+        return;
+      }
+      // 如果是空的，或者没有这个key则return
+      if (this.isEmpty() || !this.contains(key)) {
+        console.error("没有这个key，你删除个茄子");
+        return;
+      }
+      // 找到要删除的下标
+      var i = this.rank(key);
+      // // 从前往后全部提一位
+      // for (var k = i; k < this.N - 1; k++) {
+      //   this.keys[k] = this.keys[k + 1];
+      //   this.vals[k] = this.vals[k + 1];
+      // }
+      // // 删除最后一个
+      // this.keys[this.N - 1] = null;
+      // this.vals[this.N - 1] = null;
+      // splice
+      this.keys.splice(i, 1);
+      this.vals.splice(i, 1);
+      this.N--;
+    }
+
+    min() {
+      if (this.isEmpty()) {
+        console.error("Empty symbol table");
+        return;
+      }
+
+      return this.keys[0];
+    }
+
+    max() {
+      if (this.isEmpty()) {
+        console.error("Empty symbol table");
+        return;
+      }
+
+      return this.keys[this.size - 1];
+    }
+
+    select(k) {
+      if (this.isEmpty() || k >= this.N) {
+        console.error("Invalid argument: " + k);
+        return;
+      }
+
+      return this.keys[k];
+    }
+
+    // 向上取整（ceiling）操作（找出大于等于该键的最小键）
+    ceiling(key) {
+      var i = this.rank(key);
+
+      if (i == this.N) {
+        return null;
+      }
+      return this.keys[i];
+    }
+
+    // 向下取整（floor）操作（找出小于等于该键的最大键）
+    floor(key) {
+      // 如果有key就返回key
+      if (this.contains(key)) {
+        return key;
+      }
+
+      var i = this.rank(key);
+
+      if (i == 0) {
+        return null;
+      }
+      return this.keys[i - 1];
+    }
+  }
+
+  var test = new BinarySearchST();
+  console.log(test)
+  test.put('S', 0)
+  console.log(test)
+  test.put('E', 1)
+  console.log(test)
+  test.put('A', 2)
+  test.put('R', 3)
+  test.put('C', 4)
+  test.put('H', 5)
+  test.put('E', 6)
+  test.put('X', 7)
+  test.put('A', 8)
+  test.put('M', 9)
+  test.put('P', 10)
+  test.put('L', 11)
+  test.put('E', 12)
+  test.delete('A')
+  console.log(test.get('E'))
+</script>
+
+</html>
